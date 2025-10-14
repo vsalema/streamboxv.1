@@ -1,0 +1,12 @@
+{
+  "playlists": [
+    {
+      "name": "Exemple IPTV Public",
+      "url": "https://iptv-org.github.io/iptv/index.m3u"
+    },
+    {
+      "name": "Demos Streams (HLS)",
+      "url": "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/us.m3u"
+    }
+  ]
+}

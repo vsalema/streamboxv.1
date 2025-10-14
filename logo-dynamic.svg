@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 120">
+  <style>
+    .bg { fill: #0b0b0b; }
+    .border { stroke: #3B82F6; stroke-width: 3; fill: none; }
+    .text { fill: #ffffff; font-family: Inter, sans-serif; font-size: 36px; font-weight: 700; }
+    .signal { stroke: #3B82F6; stroke-linecap: round; }
+    .triangle { fill: #3B82F6; transform-origin: 90px 60px; animation: pulsePlay 2.4s ease-in-out infinite; }
+    @keyframes pulsePlay {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.15); opacity: 1; }
+    }
+  </style>
+  <rect x="0" y="0" width="180" height="120" rx="18" class="bg" />
+  <rect x="3" y="3" width="174" height="114" rx="15" class="border" />
+  <polygon points="75,40 120,60 75,80" class="triangle" />
+  <text x="22" y="72" class="text">IPTV</text>
+  <path d="M150 50C155 45 165 45 170 50" stroke-width="4" class="signal" />
+  <path d="M150 60C157 55 163 55 170 60" stroke-width="3" class="signal" />
+</svg>

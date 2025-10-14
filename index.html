@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPTV Player Web+ v2.3</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+  <!-- Splash Screen -->
+  <div id="splash">
+    <img src="logo-dynamic.svg" alt="IPTV Player" class="splash-logo-img" />
+    <div class="splash-bar"><div class="splash-progress"></div></div>
+  </div>
+
+  <header>
+    <div class="logo">
+      <img src="logo-dynamic.svg" alt="IPTV Player" class="header-logo">
+      <div id="eqBars" class="eq hidden">
+        <div></div><div></div><div></div><div></div><div></div>
+      </div>
+    </div>
+    <div class="controls">
+      <input type="text" id="urlInput" placeholder="URL (.m3u/.m3u8/.mp4/.mp3/.mpd/YouTube)">
+      <button id="loadBtn">▶ Charger</button>
+      <label class="fileLabel">
+        <input type="file" id="fileInput" accept=".m3u,.m3u8" />
+        Importer fichier M3U
+      </label>
+      <button id="themeToggle" title="Changer de thème">🌗</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <div class="tabs">
+        <button id="tab-channels" class="active">📺 Chaînes</button>
+        <button id="tab-favorites">⭐ Favoris</button>
+        <button id="tab-history">🕘 Historique</button>
+        <button id="tab-playlists">📚 Listes</button>
+      </div>
+      <div id="catBar"></div>
+      <input id="searchInput" placeholder="Rechercher une chaîne..." />
+      <div id="list"></div>
+    </aside>
+
+    <section id="playerSection">
+      <video id="videoPlayer" controls autoplay playsinline></video>
+      <iframe id="ytPlayer" allowfullscreen></iframe>
+      <audio id="audioPlayer" controls></audio>
+      <div id="noSource">Colle une URL ou choisis une liste pour commencer 🎬</div>
+      <div id="nowBar" class="nowbar">
+        <span id="nowTitle">Aucun flux</span>
+        <div class="nowbar-actions">
+          <button id="copyBtn" title="Copier l'URL">📋</button>
+          <a id="openBtn" target="_blank" rel="noreferrer">🔗 Ouvrir</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>IPTV Player Web+ v2.3 — HTML • CSS • JS</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dashjs/dist/dash.all.min.js" defer></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
