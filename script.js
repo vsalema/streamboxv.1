@@ -247,22 +247,45 @@ function renderList(){
   if (channelFilter) data = data.filter(x => (x.name||x.url).toLowerCase().includes(channelFilter));
 
   data.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = `
-      <div class="left">
-        <span class="logo-sm">${ renderLogo(item.logo) }</span>
-        <div class="meta">
-          <div class="name">${escapeHtml(item.name || item.url)}</div>
-          ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : ''}
-        </div>
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.innerHTML = `
+    <div class="left">
+      <span class="logo-sm">${ renderLogo(item.logo) }</span>
+      <div class="meta">
+        <div class="name">${escapeHtml(item.name || item.url)}</div>
+        ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
       </div>
-      <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
+    </div>
+    <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
 
-    div.onclick = () => { playByType(item.url); updateNowBar(item.name || item.url, item.url); };
-    div.querySelector('.star').onclick = e => { e.stopPropagation(); toggleFavorite(item); renderList(); };
-    listDiv.appendChild(div);
-  });
+  // ✅ Handler corrigé pour "Chaînes"
+  div.onclick = () => {
+    try { resetPlayers(); } catch {}
+    if (noSource) noSource.style.display = 'none';
+    playByType(item.url);
+    updateNowBar(item.name || item.url, item.url);
+
+    // Bonus compatibilité autoplay (évite blocage sur certains navigateurs)
+    try {
+      if (video && video.style.display === 'block') {
+        video.muted = true;
+        const p = video.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+    } catch {}
+  };
+
+  // ⭐ Favoris (inchangé)
+  div.querySelector('.star').onclick = e => {
+    e.stopPropagation();
+    toggleFavorite(item);
+    renderList();
+  };
+
+  listDiv.appendChild(div);
+});
+
 
   if (!data.length) listDiv.innerHTML += '<p style="opacity:0.6;padding:10px;">Aucune donnée.</p>';
 }
