@@ -8,8 +8,38 @@ const video = document.getElementById('videoPlayer');
 const audio = document.getElementById('audioPlayer');
 const iframe = document.getElementById('ytPlayer');
 const noSource = document.getElementById('noSource');
+// === DIAG / PARACHUTE ===
+window.__IPTV_DEBUG__ = true;
+window.addEventListener('error', e => console.error('[IPTV:error]', e.message, e.filename, e.lineno));
+window.addEventListener('unhandledrejection', e => console.error('[IPTV:promise]', e.reason));
 
-
+// Si quelque chose a cassé avant, on rattache au moins les handlers essentiels
+(function hardFix(){
+  try {
+    const input = document.getElementById('urlInput');
+    const loadBtn = document.getElementById('loadBtn');
+    const fileInput = document.getElementById('fileInput');
+    if (loadBtn && input) {
+      loadBtn.onclick = () => {
+        const v = (input.value || '').trim();
+        if (!v) return;
+        try { if (typeof resetPlayers === 'function') resetPlayers(); } catch {}
+        try { const el = document.getElementById('noSource'); if (el) el.style.display = 'none'; } catch {}
+        try { playByType(v); updateNowBar(v, v); } catch (e) { console.error('[playByType]', e); }
+      };
+    }
+    if (fileInput) {
+      fileInput.onchange = async (e) => {
+        try {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          const text = await f.text();
+          parseM3U(text);
+        } catch (e) { console.error('[parseM3U:file]', e); }
+      };
+    }
+  } catch (e) { console.error('[hardFix]', e); }
+})();
 // === Player state helper ===
 const playerSection = document.getElementById('playerSection');
 function setPlaying(on) {
@@ -279,22 +309,27 @@ function renderList(){
     <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
 
   // ✅ Handler corrigé pour "Chaînes"
-  div.onclick = () => { try { resetPlayers(); } catch {}
-if (typeof noSource !== 'undefined' && noSource) noSource.style.display = 'none';
-playByType(item.url);
-updateNowBar(item.name || item.url, item.url);
-try {
-  if (video && video.style.display === 'block') {
-    video.muted = true;
-    const p = video.play();
-    if (p && p.catch) p.catch(()=>{});
-  }
-} catch {} } catch {}
-    if (noSource) noSource.style.display = 'none';
+  data.forEach(item => {
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.innerHTML = `
+    <div class="left">
+      <span class="logo-sm">${ renderLogo(item.logo) }</span>
+      <div class="meta">
+        <div class="name">${escapeHtml(item.name || item.url)}</div>
+        ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
+      </div>
+    </div>
+    <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
+
+  // ✅ Handler clic corrigé (une seule fois, sans doublons)
+  div.onclick = () => {
+    try { resetPlayers(); } catch {}
+    if (typeof noSource !== 'undefined' && noSource) noSource.style.display = 'none';
     playByType(item.url);
     updateNowBar(item.name || item.url, item.url);
 
-    // Bonus compatibilité autoplay (évite blocage sur certains navigateurs)
+    // Anti-blocage autoplay
     try {
       if (video && video.style.display === 'block') {
         video.muted = true;
@@ -303,6 +338,17 @@ try {
       }
     } catch {}
   };
+
+  // ⭐ Favoris
+  div.querySelector('.star').onclick = e => {
+    e.stopPropagation();
+    toggleFavorite(item);
+    renderList();
+  };
+
+  listDiv.appendChild(div);
+});
+
 
   // ⭐ Favoris (inchangé)
   div.querySelector('.star').onclick = e => {
@@ -333,6 +379,8 @@ function escapeHtml(s){
     '"': '&quot;',
     "'": '&#39;'
   };
+  return (s || '').replace(/[&<>"']/g, m => map[m]);
+}
   return (s || '').replace(/[&<>"']/g, m => map[m]);
 }
 
