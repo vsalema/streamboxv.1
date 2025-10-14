@@ -8,18 +8,6 @@ const video = document.getElementById('videoPlayer');
 const audio = document.getElementById('audioPlayer');
 const iframe = document.getElementById('ytPlayer');
 const noSource = document.getElementById('noSource');
-
-
-// === Player state helper ===
-const playerSection = document.getElementById('playerSection');
-function setPlaying(on) {
-  try {
-    playerSection && playerSection.classList.toggle('playing', !!on);
-    if (typeof noSource !== 'undefined' && noSource) {
-      noSource.style.display = on ? 'none' : 'flex';
-    }
-  } catch {}
-}
 const logoBox = document.querySelector('header .logo');
 const searchInput = document.getElementById('searchInput');
 const catBar = document.getElementById('catBar');
@@ -150,9 +138,7 @@ async function loadUrl(url){
 }
 
 function resetPlayers(){
-  [video, audio].forEach(el => { try{ el.pause(); 
-  setPlaying(false);
-}catch{} el.style.display='none'; });
+  [video, audio].forEach(el => { try{ el.pause(); }catch{} el.style.display='none'; });
   iframe.style.display='none';
   setLogoActive(false);
 }
@@ -166,7 +152,6 @@ function updateNowBar(nameOrUrl, url){
 // Players
 function playHls(url){
   video.style.display = 'block';
-  setPlaying(true);
   // NEW
   if (noSource) noSource.style.display = 'none';
 
@@ -181,7 +166,6 @@ function playHls(url){
 }
 function playDash(url){
   video.style.display = 'block';
-  setPlaying(true);
   // NEW
   if (noSource) noSource.style.display = 'none';
 
@@ -194,7 +178,6 @@ function playVideo(url){
   // NEW
   if (noSource) noSource.style.display = 'none';
   video.src = url;
-  setPlaying(true);
   video.style.display = 'block';
   updateNowBar(undefined, url);
 }
@@ -202,15 +185,13 @@ function playAudio(url){
   // NEW
   if (noSource) noSource.style.display = 'none';
   audio.src = url;
-  setPlaying(true);
   audio.style.display = 'block';
   updateNowBar(undefined, url);
 }
 function playYouTube(url){
   // NEW
   if (noSource) noSource.style.display = 'none';
-  iframe.src = `https://www.youtube.com/embed/${extractYT(url)  setPlaying(true);
-}?autoplay=1`;
+  iframe.src = `https://www.youtube.com/embed/${extractYT(url)}?autoplay=1`;
   iframe.style.display = 'block';
   updateNowBar(undefined, url);
 }
@@ -279,17 +260,8 @@ function renderList(){
     <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
 
   // ✅ Handler corrigé pour "Chaînes"
-  div.onclick = () => { try { resetPlayers(); } catch {}
-if (typeof noSource !== 'undefined' && noSource) noSource.style.display = 'none';
-playByType(item.url);
-updateNowBar(item.name || item.url, item.url);
-try {
-  if (video && video.style.display === 'block') {
-    video.muted = true;
-    const p = video.play();
-    if (p && p.catch) p.catch(()=>{});
-  }
-} catch {} } catch {}
+  div.onclick = () => {
+    try { resetPlayers(); } catch {}
     if (noSource) noSource.style.display = 'none';
     playByType(item.url);
     updateNowBar(item.name || item.url, item.url);
