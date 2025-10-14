@@ -1,5 +1,3 @@
-
-/* === PATCH IPTV Player (robust layout + nowBar en bas) === */
 #playerSection { position: relative !important; display: block !important; background: #000 !important; }
 #videoPlayer, #ytPlayer, #audioPlayer {
   position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important;
@@ -18,4 +16,3 @@ footer { height: 64px; font-size: 0; border-top: none; }
 }
 #nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto; }
 main { padding-bottom: 76px; }
-@media (max-width: 900px){ #nowBar { bottom: 64px; } }
