@@ -263,3 +263,20 @@ footer {
 /* Toast */
 .toast { position: fixed; left:50%; transform: translateX(-50%); bottom: 20px;
   background: rgba(0,0,0,.8); color:#fff; padding:10px 14px; border-radius:10px; z-index:10000; }
+/* --- Force la fermeture automatique du splash même si JS plante --- */
+#splash {
+  opacity: 1;
+  pointer-events: auto;
+  /* Attend 2.2s puis cache le splash en CSS (aucun JS requis) */
+  animation: splashhide 0.001s step-end forwards;
+  animation-delay: 2.2s;
+}
+
+@keyframes splashhide {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
