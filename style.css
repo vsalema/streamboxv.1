@@ -331,4 +331,59 @@ footer {
 @media (max-width: 900px) {
   #nowBar { bottom: 64px; }     /* ↑ augmente cette valeur si besoin */
 }
+/* --- Place la nowBar en bas, là où était le footer --- */
+
+/* Le footer devient juste un espace réservé (on masque son texte) */
+footer {
+  height: 64px;            /* réserve l'espace bas */
+  font-size: 0;            /* masque le texte "IPTV Player Web+ ..." */
+  border-top: none;
+}
+
+/* NowBar fixe en bas, hors du player */
+#nowBar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom)); /* safe area mobiles */
+  z-index: 1000;
+  pointer-events: none;     /* ne bloque jamais les contrôles du player */
+}
+#nowBar .nowbar-actions > *,
+#nowBar a,
+#nowBar button {
+  pointer-events: auto;     /* les boutons restent cliquables */
+}
+
+/* Évite que la nowBar chevauche le contenu */
+main { padding-bottom: 76px; }  /* ~ hauteur footer + marge */
+
+/* --- Layout player robuste, même quand on lance depuis "Chaînes" --- */
+#playerSection {
+  position: relative;
+  display: block;           /* pas de flex-centering */
+  background: #000;
+}
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;      /* pas de cropping */
+  background: #000;
+  display: none;            /* le JS met 'block' sur le media actif */
+  box-sizing: border-box;
+  z-index: 1;
+}
+#noSource {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 1;
+}
 
