@@ -478,3 +478,9 @@ if (last) { input.value = last; }
 
 // Initial render only (no dynamic fetch here)
 renderList();
+div.onclick = () => {
+  if (noSource) noSource.style.display = 'none';  // masque le message
+  try { resetPlayers(); } catch {}                 // nettoie les autres médias
+  playByType(item.url);
+  updateNowBar(item.name || item.url, item.url);
+};
