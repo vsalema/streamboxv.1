@@ -152,8 +152,11 @@ function updateNowBar(nameOrUrl, url){
 // Players
 function playHls(url){
   video.style.display = 'block';
-  if (HLS && HLS.isSupported()) {
-    const hls = new HLS();
+  // NEW
+  if (noSource) noSource.style.display = 'none';
+
+  if (window.Hls && window.Hls.isSupported()) {
+    const hls = new window.Hls();
     hls.loadSource(url);
     hls.attachMedia(video);
   } else {
@@ -163,27 +166,35 @@ function playHls(url){
 }
 function playDash(url){
   video.style.display = 'block';
-  if (!DASH) { video.src = url; return; }
-  const player = DASH().create();
-  player.initialize(video, url, true);
+  // NEW
+  if (noSource) noSource.style.display = 'none';
+
+  const player = window.dashjs?.MediaPlayer?.create?.();
+  if (player) player.initialize(video, url, true); else video.src = url;
   updateNowBar(undefined, url);
 }
+
 function playVideo(url){
+  // NEW
+  if (noSource) noSource.style.display = 'none';
   video.src = url;
   video.style.display = 'block';
   updateNowBar(undefined, url);
 }
 function playAudio(url){
+  // NEW
+  if (noSource) noSource.style.display = 'none';
   audio.src = url;
   audio.style.display = 'block';
   updateNowBar(undefined, url);
 }
 function playYouTube(url){
+  // NEW
+  if (noSource) noSource.style.display = 'none';
   iframe.src = `https://www.youtube.com/embed/${extractYT(url)}?autoplay=1`;
   iframe.style.display = 'block';
   updateNowBar(undefined, url);
 }
-
 // M3U parsing with logos and groups
 function parseM3U(text){
   const lines = text.split(/\r?\n/);
