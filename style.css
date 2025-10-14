@@ -386,4 +386,36 @@ main { padding-bottom: 76px; }  /* ~ hauteur footer + marge */
   padding: 12px;
   z-index: 1;
 }
+/* --- Player plein cadre, quoi qu'il arrive (priorité haute) --- */
+#playerSection {
+  position: relative !important;
+  display: block !important;          /* pas de flex-centering */
+  background: #000 !important;
+}
+
+/* Tous les médias occupent 100% de #playerSection */
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;     /* pas de zoom/cropping */
+  background: #000 !important;
+  display: none;                      /* le JS met 'block' sur le media actif */
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+/* Le message d'attente n'occupe pas le layout */
+#noSource {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 1;
+}
 
