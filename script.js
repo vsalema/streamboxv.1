@@ -1,7 +1,13 @@
-window.addEventListener('error', e => console.error('[IPTV:error]', e.message));
+// ============= IPTV Player – RESCUE SCRIPT (baseline propre) =============
+// Ce fichier remplace intégralement script.js pour déblocage rapide.
+// Fonctions: coller URL, importer M3U, lister chaînes (logos, groupes), jouer HLS/MP4/MP3/MPD/YouTube.
+// ========================================================================
+
+// --- Sécurité & logs ---
+window.addEventListener('error', e => console.error('[IPTV:error]', e.message, e.filename, e.lineno));
 window.addEventListener('unhandledrejection', e => console.error('[IPTV:promise]', e.reason));
 
-// Elements
+// --- Elements ---
 const input = document.getElementById('urlInput');
 const loadBtn = document.getElementById('loadBtn');
 const fileInput = document.getElementById('fileInput');
@@ -11,49 +17,7 @@ const video = document.getElementById('videoPlayer');
 const audio = document.getElementById('audioPlayer');
 const iframe = document.getElementById('ytPlayer');
 const noSource = document.getElementById('noSource');
-// === DIAG / PARACHUTE ===
-window.__IPTV_DEBUG__ = true;
-window.addEventListener('error', e => console.error('[IPTV:error]', e.message, e.filename, e.lineno));
-window.addEventListener('unhandledrejection', e => console.error('[IPTV:promise]', e.reason));
-
-// Si quelque chose a cassé avant, on rattache au moins les handlers essentiels
-(function hardFix(){
-  try {
-    const input = document.getElementById('urlInput');
-    const loadBtn = document.getElementById('loadBtn');
-    const fileInput = document.getElementById('fileInput');
-    if (loadBtn && input) {
-      loadBtn.onclick = () => {
-        const v = (input.value || '').trim();
-        if (!v) return;
-        try { if (typeof resetPlayers === 'function') resetPlayers(); } catch {}
-        try { const el = document.getElementById('noSource'); if (el) el.style.display = 'none'; } catch {}
-        try { playByType(v); updateNowBar(v, v); } catch (e) { console.error('[playByType]', e); }
-      };
-    }
-    if (fileInput) {
-      fileInput.onchange = async (e) => {
-        try {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          const text = await f.text();
-          parseM3U(text);
-        } catch (e) { console.error('[parseM3U:file]', e); }
-      };
-    }
-  } catch (e) { console.error('[hardFix]', e); }
-})();
-// === Player state helper ===
 const playerSection = document.getElementById('playerSection');
-function setPlaying(on) {
-  try {
-    playerSection && playerSection.classList.toggle('playing', !!on);
-    if (typeof noSource !== 'undefined' && noSource) {
-      noSource.style.display = on ? 'none' : 'flex';
-    }
-  } catch {}
-}
-const logoBox = document.querySelector('header .logo');
 const searchInput = document.getElementById('searchInput');
 const catBar = document.getElementById('catBar');
 
@@ -61,153 +25,85 @@ const tabs = {
   channels: document.getElementById('tab-channels'),
   favorites: document.getElementById('tab-favorites'),
   history: document.getElementById('tab-history'),
-  playlists: document.getElementById('tab-playlists')
+  playlists: document.getElementById('tab-playlists'),
 };
 
 const nowTitle = document.getElementById('nowTitle');
-const copyBtn = document.getElementById('copyBtn');
-const openBtn = document.getElementById('openBtn');
+const copyBtn  = document.getElementById('copyBtn');
+const openBtn  = document.getElementById('openBtn');
 
-// LocalStorage
-const LS_KEYS = { favorites: 'iptv.favorites', history: 'iptv.history', theme: 'theme', playlists: 'iptv.playlists', last: 'iptv.lastUrl' };
-function load(key, def){ try{ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch{ return def; } }
-function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch{} }
+// --- Storage helpers ---
+const LS = { fav:'iptv.favorites', hist:'iptv.history', last:'iptv.lastUrl', theme:'theme', playlists:'iptv.playlists' };
+const loadLS = (k, d) => { try { const v = localStorage.getItem(k); return v?JSON.parse(v):d; } catch { return d; } };
+const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-let channels = []; // {name,url,group,logo}
-let favorites = load(LS_KEYS.favorites, []); // {name,url,logo}
-let historyList = load(LS_KEYS.history, []); // [url]
-let mode = 'channels';
+// --- State ---
+let channels = [];              // {name,url,group,logo}
+let favorites = loadLS(LS.fav, []);
+let historyList = loadLS(LS.hist, []);
 let categories = ['ALL'];
 let categoryFilter = 'ALL';
 let channelFilter = '';
+let mode = 'channels';
+let defaultPlaylists = [];      // chargé à la demande
+let userPlaylists = loadLS(LS.playlists, []);
 
-// Playlist sources
-let defaultPlaylists = []; // loaded on demand
-let userPlaylists = load(LS_KEYS.playlists, []); // [{name,url}]
-let eqBars;
-
-// libs
-const HLS = window.Hls;
-const DASH = window.dashjs?.MediaPlayer;
-
-// Tabs
-tabs.channels.onclick = () => switchTab('channels');
-tabs.favorites.onclick = () => switchTab('favorites');
-tabs.history.onclick = () => switchTab('history');
-tabs.playlists.onclick = () => switchTab('playlists');
-
-// Buttons
-loadBtn.onclick = () => input.value.trim() && loadUrl(input.value.trim());
-themeBtn.onclick = toggleTheme;
-fileInput.onchange = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  const text = await file.text();
-  parseM3U(text);
-};
-
-// Drag & drop M3U
-listDiv.addEventListener('dragover', (e)=>e.preventDefault());
-listDiv.addEventListener('drop', async (e)=>{
-  e.preventDefault();
-  const file = e.dataTransfer.files?.[0];
-  if (file && /\.m3u8?$/i.test(file.name)) {
-    const text = await file.text();
-    parseM3U(text);
-  }
-});
-
-// Search
-searchInput?.addEventListener('input', (e)=>{ channelFilter = e.target.value.toLowerCase(); renderList(); });
-
-// Theme init
-(function initTheme(){
-  const saved = load(LS_KEYS.theme, 'dark');
-  if (saved === 'light') document.body.classList.add('light');
-})();
-function toggleTheme(){
-  const isLight = document.body.classList.toggle('light');
-  save(LS_KEYS.theme, isLight ? 'light' : 'dark');
+// --- Utils ---
+function escapeHtml(s){
+  const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
+  return (s ?? '').toString().replace(/[&<>"']/g, m => map[m]);
 }
-
-// Helpers
 function classify(url){
-  const u = url.toLowerCase();
+  const u = (url||'').toLowerCase();
   if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
-  if (u.endsWith('.m3u') || u.endsWith('.m3u8')) return 'm3u';
+  if (u.endsWith('.m3u') || u.includes('.m3u8')) return 'hls';
   if (u.endsWith('.mp4')) return 'mp4';
   if (u.endsWith('.mp3')) return 'mp3';
   if (u.endsWith('.mpd')) return 'dash';
-  if (u.includes('.m3u8')) return 'hls';
   return 'unknown';
 }
-function extractYT(url){ const m = url.match(/[?&]v=([^&]+)/); return m ? m[1] : url.split('/').pop(); }
-function setLogoActive(playing){ logoBox?.classList.toggle('playing', !!playing); }
+const extractYT = (url) => { const m = url.match(/[?&]v=([^&]+)/); return m?m[1]:url.split('/').pop(); };
+const PLACEHOLDER_LOGO = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="10" fill="#111"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="34">📺</text></svg>`);
 
-// Placeholder logo data URI
-const PLACEHOLDER_LOGO = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-  <rect width="64" height="64" rx="10" fill="#111"/>
-  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="34">📺</text>
-</svg>`);
-
-// Loader core
-async function loadUrl(url){
-  save(LS_KEYS.last, url);
-  const type = classify(url);
-  resetPlayers();
-  noSource.style.display = 'none';
-  addHistory(url);
-
-  switch(type){
-    case 'youtube': return playYouTube(url);
-    case 'mp4': return playVideo(url);
-    case 'mp3': return playAudio(url);
-    case 'dash': return playDash(url);
-    case 'm3u':
-    case 'hls':
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-        if (text.startsWith('#EXTM3U')) { parseM3U(text); return; }
-        playHls(url);
-      } catch (e) {
-        toast(`Erreur de chargement: ${e.message || e}`);
-        playHls(url);
-      }
-      return;
-    default:
-      alert('Type non reconnu');
-  }
+// --- UI helpers ---
+function setPlaying(on){
+  try {
+    playerSection && playerSection.classList.toggle('playing', !!on);
+    if (noSource) noSource.style.display = on ? 'none' : 'flex';
+  } catch {}
 }
-
 function resetPlayers(){
-  [video, audio].forEach(el => { try{ el.pause(); 
+  try { video.pause(); } catch {}
+  try { audio.pause(); } catch {}
+  video.style.display = 'none';
+  audio.style.display = 'none';
+  iframe.style.display = 'none';
   setPlaying(false);
-}catch{} el.style.display='none'; });
-  iframe.style.display='none';
-  setLogoActive(false);
 }
-
 function updateNowBar(nameOrUrl, url){
-  nowTitle.textContent = nameOrUrl || url || 'Flux';
-  openBtn.href = url || '#';
-  copyBtn.onclick = async () => { try { await navigator.clipboard.writeText(url); toast('URL copiée'); } catch {} };
+  nowTitle && (nowTitle.textContent = nameOrUrl || url || 'Flux');
+  if (openBtn) openBtn.href = url || '#';
+  if (copyBtn) copyBtn.onclick = async () => { try { await navigator.clipboard.writeText(url); } catch {} };
 }
 
-// Players
+// --- Players ---
 function playHls(url){
   video.style.display = 'block';
   setPlaying(true);
-  // NEW
-  if (noSource) noSource.style.display = 'none';
-
-  if (window.Hls && window.Hls.isSupported()) {
-    const hls = new window.Hls();
-    hls.loadSource(url);
-    hls.attachMedia(video);
-  } else {
+  try {
+    if (window.Hls && window.Hls.isSupported()) {
+      const hls = new window.Hls();
+      hls.on(window.Hls.Events.ERROR, (evt, data) => {
+        console.warn('[HLS.js error]', data);
+        if (data?.fatal) { hls.destroy(); video.src = url; }
+      });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url; // Safari iOS lit HLS nativement
+    }
+  } catch (e) {
+    console.error('[playHls]', e);
     video.src = url;
   }
   updateNowBar(undefined, url);
@@ -215,427 +111,283 @@ function playHls(url){
 function playDash(url){
   video.style.display = 'block';
   setPlaying(true);
-  // NEW
-  if (noSource) noSource.style.display = 'none';
-
-  const player = window.dashjs?.MediaPlayer?.create?.();
-  if (player) player.initialize(video, url, true); else video.src = url;
+  const DASH = window.dashjs?.MediaPlayer;
+  if (DASH && typeof DASH.create === 'function') {
+    const p = DASH.create();
+    p.initialize(video, url, true);
+  } else {
+    video.src = url; // fallback
+  }
   updateNowBar(undefined, url);
 }
-
 function playVideo(url){
-  // NEW
-  if (noSource) noSource.style.display = 'none';
-  video.src = url;
-  setPlaying(true);
   video.style.display = 'block';
+  setPlaying(true);
+  video.src = url;
   updateNowBar(undefined, url);
 }
 function playAudio(url){
-  // NEW
-  if (noSource) noSource.style.display = 'none';
-  audio.src = url;
-  setPlaying(true);
   audio.style.display = 'block';
+  setPlaying(true);
+  audio.src = url;
   updateNowBar(undefined, url);
 }
 function playYouTube(url){
-  // NEW
-  if (noSource) noSource.style.display = 'none';
-  iframe.src = `https://www.youtube.com/embed/${extractYT(url)  setPlaying(true);
-}?autoplay=1`;
   iframe.style.display = 'block';
+  setPlaying(true);
+  iframe.src = `https://www.youtube.com/embed/${extractYT(url)}?autoplay=1`;
   updateNowBar(undefined, url);
 }
-// M3U parsing with logos and groups
+function playByType(url){
+  const t = classify(url);
+  if (t==='youtube') return playYouTube(url);
+  if (t==='mp4') return playVideo(url);
+  if (t==='mp3') return playAudio(url);
+  if (t==='dash') return playDash(url);
+  return playHls(url);
+}
+
+// --- M3U ---
 function parseM3U(text){
-  const lines = text.split(/\r?\n/);
-  let name = '', group = 'Autres', logo = '';
-  channels = [];
-  categories = ['ALL'];
+  text = String(text||'').replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).map(l => l.trim());
+  let name='', group='Autres', logo='';
+  channels = []; categories = ['ALL'];
 
   for (let i=0; i<lines.length; i++){
-    const l = lines[i].trim();
+    const l = lines[i];
+    if (!l) continue;
     if (l.startsWith('#EXTINF')){
-      const nameMatch = l.match(/,(.*)$/);
-      name = nameMatch ? nameMatch[1].trim() : 'Chaîne';
-      const grp = l.match(/group-title="([^"]+)"/i);
-      group = grp ? grp[1] : 'Autres';
-      const lg = l.match(/tvg-logo="([^"]+)"/i) || l.match(/logo="([^"]+)"/i);
-      logo = lg ? lg[1] : '';
+      const nm = l.match(/,(.*)$/); name = nm ? nm[1].trim() : 'Chaîne';
+      const gm = l.match(/group-title="([^"]+)"/i); group = gm?gm[1]:'Autres';
+      const lg = l.match(/tvg-logo="([^"]+)"/i) || l.match(/logo="([^"]+)"/i); logo = lg?lg[1]:'';
       if (!categories.includes(group)) categories.push(group);
     } else if (/^https?:\/\//i.test(l)){
-      channels.push({ name, url: l, group, logo: logo || PLACEHOLDER_LOGO });
+      channels.push({ name, url:l, group, logo: logo || PLACEHOLDER_LOGO });
     }
   }
   categoryFilter = 'ALL';
   switchTab('channels');
 }
 
-// Render categories
+// --- Rendu ---
 function renderCategories(){
   if (!catBar) return;
   if (categories.length <= 1) { catBar.innerHTML = ''; return; }
-  catBar.innerHTML = categories.map(c => 
-    `<button class="cat ${c===categoryFilter?'active':''}" data-cat="${c}">${c}</button>`
-  ).join('');
+  catBar.innerHTML = categories.map(c => `<button class="cat ${c===categoryFilter?'active':''}" data-cat="${c}">${escapeHtml(c)}</button>`).join('');
   catBar.querySelectorAll('button').forEach(btn=>{
-    btn.onclick = ()=>{ categoryFilter = btn.dataset.cat; renderList(); };
+    btn.onclick = () => { categoryFilter = btn.dataset.cat; renderList(); };
   });
 }
-
-// Render list (channels/favorites/history/playlists)
-
-function renderList(){
-  listDiv.innerHTML = '';
-  if (mode === 'channels') renderCategories(); else catBar.innerHTML = '';
-
-  let data = [];
-  if (mode === 'channels') data = channels;
-  if (mode === 'favorites') data = favorites;
-  if (mode === 'history') data = historyList.map(u => ({ url:u, name:u }));
-  if (mode === 'playlists') { renderPlaylists(); return; }
-
-  if (mode === 'channels' && categoryFilter !== 'ALL') {
-    data = data.filter(x => x.group === categoryFilter);
-  }
-  if (channelFilter) {
-    const q = channelFilter.toLowerCase();
-    data = data.filter(x => (x.name || x.url).toLowerCase().includes(q));
-  }
-
-  data.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = `
-      <div class="left">
-        <span class="logo-sm">${ renderLogo(item.logo) }</span>
-        <div class="meta">
-          <div class="name">${escapeHtml(item.name || item.url)}</div>
-          ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
-        </div>
-      </div>
-      <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
-
-    div.onclick = () => {
-      try { resetPlayers(); } catch {}
-      try { if (typeof noSource !== 'undefined' && noSource) noSource.style.display = 'none'; } catch {}
-      playByType(item.url);
-      updateNowBar(item.name || item.url, item.url);
-      try {
-        if (video && video.style.display === 'block') {
-          video.muted = true;
-          const p = video.play();
-          if (p && p.catch) p.catch(()=>{});
-        }
-      } catch {}
-    };
-
-    const star = div.querySelector('.star');
-    if (star) {
-      star.onclick = (e) => {
-        e.stopPropagation();
-        toggleFavorite(item);
-        renderList();
-      };
-    }
-
-    listDiv.appendChild(div);
-  });
-
-  if (!data.length) {
-    listDiv.innerHTML = '<p style="opacity:0.6;padding:10px;">Aucune donnée.</p>';
-  }
-}
-
-));
-  if (mode==='playlists') return renderPlaylists();
-
-  if (mode==='channels' && categoryFilter!=='ALL') data = data.filter(x => x.group === categoryFilter);
-  if (channelFilter) data = data.filter(x => (x.name||x.url).toLowerCase().includes(channelFilter));
-
-  data.forEach(item => {
-  const div = document.createElement('div');
-  div.className = 'item';
-  div.innerHTML = `
-    <div class="left">
-      <span class="logo-sm">${ renderLogo(item.logo) }</span>
-      <div class="meta">
-        <div class="name">${escapeHtml(item.name || item.url)}</div>
-        ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
-      </div>
-    </div>
-    <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
-
-  // ✅ Handler corrigé pour "Chaînes"
-  data.forEach(item => {
-  const div = document.createElement('div');
-  div.className = 'item';
-  div.innerHTML = `
-    <div class="left">
-      <span class="logo-sm">${ renderLogo(item.logo) }</span>
-      <div class="meta">
-        <div class="name">${escapeHtml(item.name || item.url)}</div>
-        ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
-      </div>
-    </div>
-    <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
-
-  // ✅ Handler clic corrigé (une seule fois, sans doublons)
-  div.onclick = () => {
-    try { resetPlayers(); } catch {}
-    if (typeof noSource !== 'undefined' && noSource) noSource.style.display = 'none';
-    playByType(item.url);
-    updateNowBar(item.name || item.url, item.url);
-
-    // Anti-blocage autoplay
-    try {
-      if (video && video.style.display === 'block') {
-        video.muted = true;
-        const p = video.play();
-        if (p && p.catch) p.catch(() => {});
-      }
-    } catch {}
-  };
-
-  // ⭐ Favoris
-  div.querySelector('.star').onclick = e => {
-    e.stopPropagation();
-    toggleFavorite(item);
-    renderList();
-  };
-
-  listDiv.appendChild(div);
-});
-
-
-  // ⭐ Favoris (inchangé)
-  div.querySelector('.star').onclick = e => {
-    e.stopPropagation();
-    toggleFavorite(item);
-    renderList();
-  };
-
-  listDiv.appendChild(div);
-});
-
-
-  if (!data.length) listDiv.innerHTML += '<p style="opacity:0.6;padding:10px;">Aucune donnée.</p>';
-}
-
 function renderLogo(logo){
   if (!logo) return `<span class="ph">📺</span>`;
-  const safe = logo.startsWith('http') || logo.startsWith('data:') ? logo : PLACEHOLDER_LOGO;
-  return `<img src="${safe}" alt="logo" onerror="this.src='${PLACEHOLDER_LOGO}'" />`;
+  const safe = (logo.startsWith('http') || logo.startsWith('data:')) ? logo : PLACEHOLDER_LOGO;
+  return `<img src="${safe}" alt="logo" onerror="this.src='${PLACEHOLDER_LOGO}'">`;
 }
-
-// Safe escapeHtml
-function escapeHtml(s){
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  };
-  return (s ?? '').toString().replace(/[&<>"']/g, m => map[m]);
-}
-function playByType(url){
-  // NEW: on nettoie, et on masque le message d’attente
-  try { resetPlayers(); } catch {}
-  try { if (noSource) noSource.style.display = 'none'; } catch {}
-
-  const t = classify(url);
-  if (t === 'youtube') return playYouTube(url);
-  if (t === 'mp4') return playVideo(url);
-  if (t === 'mp3') return playAudio(url);
-  if (t === 'dash') return playDash(url);
-  return playHls(url);
-}
-
-// Favorites & History
 function isFav(url){ return favorites.some(f => f.url === url); }
-function toggleFavorite(item){
-  if (isFav(item.url)) favorites = favorites.filter(f => f.url !== item.url);
-  else favorites.unshift({ name: item.name || item.url, url: item.url, logo: item.logo || '' });
-  save(LS_KEYS.favorites, favorites);
+function toggleFavorite(it){
+  if (isFav(it.url)) favorites = favorites.filter(f => f.url !== it.url);
+  else favorites.unshift({ name: it.name || it.url, url: it.url, logo: it.logo || '' });
+  saveLS(LS.fav, favorites);
 }
 function addHistory(url){
-  historyList = [url, ...historyList.filter(u => u !== url)].slice(0, 30);
-  save(LS_KEYS.history, historyList);
-}
-function switchTab(t){
-  mode = t;
-  Object.values(tabs).forEach(b => b.classList.remove('active'));
-  tabs[t].classList.add('active');
-  renderList();
-  if (t==='playlists') ensureDefaultPlaylistsLoaded(); // load on demand
-}
-
-// Equalizer (real)
-eqBars = document.getElementById('eqBars');
-let audioCtx, analyser, source, dataArray, rafId;
-function setEqualizer(active){
-  if (!eqBars) return;
-  eqBars.classList.toggle('hidden', !active);
-  if (active){
-    if (!audioCtx){
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      const bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-      source = audioCtx.createMediaElementSource(audio);
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-    }
-    loopEq();
-  } else {
-    cancelAnimationFrame(rafId);
-    eqBars.querySelectorAll('div').forEach(b => b.style.height = '10%');
-  }
-}
-function loopEq(){
-  const bars = eqBars.querySelectorAll('div');
-  analyser.getByteFrequencyData(dataArray);
-  const slice = Math.floor(dataArray.length / bars.length);
-  for (let i=0; i<bars.length; i++){
-    let sum=0; for (let j=i*slice;j<(i+1)*slice;j++) sum+=dataArray[j];
-    const avg = sum / slice;
-    const height = Math.max(5, Math.min(100, 1.2*(avg/255)*100));
-    bars[i].style.height = `${height}%`;
-  }
-  rafId = requestAnimationFrame(loopEq);
-}
-
-// Splash: **always** close after 2s no matter what
-window.addEventListener('load', () => {
-  const splash = document.getElementById('splash');
-  setTimeout(() => { splash.classList.add('hidden'); setTimeout(() => splash.remove(), 600); }, 2000);
-});
-
-// Toast
-function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 1800); }
-
-// --- Playlists UI (JSON + ajout local, loaded on demand) ---
-async function ensureDefaultPlaylistsLoaded(force=false){
-  if (defaultPlaylists.length && !force) return;
-  try{
-    const res = await fetch('playlists.json', { cache: 'no-store' });
-    if (!res.ok) throw 0;
-    const data = await res.json();
-    defaultPlaylists = (data.playlists || []).filter(x => x.url);
-  }catch{
-    defaultPlaylists = [];
-  }finally{
-    renderList(); // refresh UI
-  }
+  historyList = [url, ...historyList.filter(u=>u!==url)].slice(0,30);
+  saveLS(LS.hist, historyList);
 }
 function renderPlaylists(){
   listDiv.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.style.padding = '8px';
 
-  const wrap = document.createElement('div');
-  wrap.style.padding = '8px';
-
-  const bar = document.createElement('div');
-  bar.style.display='flex'; bar.style.gap='8px'; bar.style.margin='6px';
+  const bar = document.createElement('div'); bar.style.display='flex'; bar.style.gap='8px'; bar.style.margin='6px';
   bar.innerHTML = `<button id="plReload">Charger playlists.json</button>`;
   wrap.appendChild(bar);
-
   bar.querySelector('#plReload').onclick = () => ensureDefaultPlaylistsLoaded(true);
 
-  const h1 = document.createElement('h3');
-  h1.textContent = 'Listes par défaut (playlists.json)';
-  h1.style.opacity = '.8'; h1.style.margin = '6px 0';
+  const h1 = document.createElement('h3'); h1.textContent='Listes par défaut'; h1.style.margin='6px 0'; h1.style.opacity='.8';
   wrap.appendChild(h1);
 
   const def = document.createElement('div');
-  (defaultPlaylists.length? defaultPlaylists : [{name:'(aucune – clique sur "Charger playlists.json")',url:''}]).forEach(p => {
-    const it = document.createElement('div');
-    it.className='item';
+  (defaultPlaylists.length ? defaultPlaylists : [{name:'(aucune – clique “Charger playlists.json”)', url:''}]).forEach(p=>{
+    const it = document.createElement('div'); it.className='item';
     it.innerHTML = `<div class="left"><span class="logo-sm"><span class="ph">📚</span></span><div class="meta"><div class="name">${escapeHtml(p.name||p.url)}</div></div></div>`;
-    if (p.url){
+    if (p.url) {
       it.onclick = async () => {
         try{
           const res = await fetch(p.url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const text = await res.text();
-          parseM3U(text);
-          toast('Playlist chargée');
-        }catch(e){ toast('Erreur playlist: ' + (e.message||e)); }
+          if (!res.ok) throw new Error('HTTP '+res.status);
+          const txt = await res.text();
+          parseM3U(txt);
+        }catch(e){ console.error('[playlist]', e); }
       };
     }
     def.appendChild(it);
   });
   wrap.appendChild(def);
 
-  const h2 = document.createElement('h3');
-  h2.textContent = 'Mes listes (localStorage)';
-  h2.style.opacity = '.8'; h2.style.margin = '10px 0 6px';
+  const h2 = document.createElement('h3'); h2.textContent='Mes listes'; h2.style.margin='10px 0 6px'; h2.style.opacity='.8';
   wrap.appendChild(h2);
 
   const mine = document.createElement('div');
-  userPlaylists.forEach((p, idx) => {
-    const it = document.createElement('div');
-    it.className='item';
+  userPlaylists.forEach((p, idx)=>{
+    const it = document.createElement('div'); it.className='item';
     it.innerHTML = `
       <div class="left">
         <span class="logo-sm"><span class="ph">🗂️</span></span>
         <div class="meta"><div class="name">${escapeHtml(p.name||p.url)}</div></div>
       </div>
-      <div>
-        <button class="btn-small" data-idx="${idx}" data-act="del" title="Supprimer">🗑️</button>
-      </div>`;
+      <div><button class="btn-small" data-idx="${idx}" data-act="del">🗑️</button></div>`;
     it.onclick = async (e) => {
       if (e.target.dataset.act === 'del') return;
       try{
         const res = await fetch(p.url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-        parseM3U(text);
-        toast('Playlist chargée');
-      }catch(e){ toast('Erreur playlist: ' + (e.message||e)); }
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const txt = await res.text();
+        parseM3U(txt);
+      }catch(e){ console.error('[playlist:mine]', e); }
     };
     it.querySelector('[data-act="del"]').onclick = (e)=>{
       e.stopPropagation();
       userPlaylists.splice(idx,1);
-      save(LS_KEYS.playlists, userPlaylists);
+      saveLS(LS.playlists, userPlaylists);
       renderPlaylists();
     };
     mine.appendChild(it);
   });
   wrap.appendChild(mine);
 
-  const form = document.createElement('div');
-  form.style.marginTop='10px';
+  const form = document.createElement('div'); form.style.marginTop='10px';
   form.innerHTML = `
     <input id="plName" placeholder="Nom de la liste" style="margin-bottom:6px;">
     <input id="plUrl" placeholder="URL de la liste M3U">
     <button id="plAdd">Ajouter</button>`;
   wrap.appendChild(form);
-
-  listDiv.appendChild(wrap);
-
   form.querySelector('#plAdd').onclick = () => {
     const name = form.querySelector('#plName').value.trim();
-    const url = form.querySelector('#plUrl').value.trim();
-    if (!url) return toast('URL requise');
+    const url  = form.querySelector('#plUrl').value.trim();
+    if (!url) return;
     userPlaylists.unshift({ name: name || url, url });
-    save(LS_KEYS.playlists, userPlaylists);
+    saveLS(LS.playlists, userPlaylists);
     renderPlaylists();
-    toast('Liste ajoutée');
   };
+
+  listDiv.appendChild(wrap);
+}
+function renderList(){
+  listDiv.innerHTML = '';
+  if (mode==='channels') renderCategories(); else catBar.innerHTML = '';
+
+  let data = [];
+  if (mode==='channels') data = channels;
+  if (mode==='favorites') data = favorites;
+  if (mode==='history') data = historyList.map(u => ({url:u, name:u}));
+  if (mode==='playlists') { renderPlaylists(); return; }
+
+  if (mode==='channels' && categoryFilter!=='ALL') data = data.filter(x=>x.group===categoryFilter);
+  if (channelFilter) data = data.filter(x => (x.name||x.url).toLowerCase().includes(channelFilter.toLowerCase()));
+
+  data.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="left">
+        <span class="logo-sm">${renderLogo(item.logo)}</span>
+        <div class="meta">
+          <div class="name">${escapeHtml(item.name||item.url)}</div>
+          ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
+        </div>
+      </div>
+      <span class="star">${isFav(item.url) ? '★' : '☆'}</span>
+    `;
+    div.onclick = () => {
+      try { resetPlayers(); } catch {}
+      if (noSource) noSource.style.display = 'none';
+      playByType(item.url);
+      updateNowBar(item.name || item.url, item.url);
+      try {
+        if (video && video.style.display === 'block') {
+          video.muted = true;            // anti-autoplay
+          const p = video.play();
+          if (p && p.catch) p.catch(()=>{});
+        }
+      } catch {}
+      addHistory(item.url);
+    };
+    div.querySelector('.star').onclick = (e)=>{
+      e.stopPropagation();
+      toggleFavorite(item);
+      renderList();
+    };
+    listDiv.appendChild(div);
+  });
+
+  if (!data.length) listDiv.innerHTML = '<p style="opacity:.6;padding:10px;">Aucune donnée.</p>';
 }
 
-// Auto-fill last url (no auto-play)
-const last = load(LS_KEYS.last, '');
-if (last) { input.value = last; }
+// --- Tabs ---
+function switchTab(t){
+  mode = t;
+  Object.values(tabs).forEach(b => b && b.classList.remove('active'));
+  tabs[t] && tabs[t].classList.add('active');
+  renderList();
+  if (t==='playlists') ensureDefaultPlaylistsLoaded();
+}
+tabs.channels && (tabs.channels.onclick = ()=>switchTab('channels'));
+tabs.favorites && (tabs.favorites.onclick = ()=>switchTab('favorites'));
+tabs.history && (tabs.history.onclick   = ()=>switchTab('history'));
+tabs.playlists && (tabs.playlists.onclick=()=>switchTab('playlists'));
 
-// Initial render only (no dynamic fetch here)
-renderList();
-div.onclick = () => {
-  if (noSource) noSource.style.display = 'none';  // masque le message
-  try { resetPlayers(); } catch {}                 // nettoie les autres médias
-  playByType(item.url);
-  updateNowBar(item.name || item.url, item.url);
-};
+// --- Controls ---
+loadBtn && (loadBtn.onclick = ()=>{
+  const v = (input.value||'').trim();
+  if (!v) return;
+  resetPlayers();
+  if (noSource) noSource.style.display = 'none';
+  playByType(v);
+  updateNowBar(v, v);
+  addHistory(v);
+});
+fileInput && (fileInput.onchange = async (e)=>{
+  const f = e.target.files?.[0]; if (!f) return;
+  const txt = await f.text();
+  parseM3U(txt);
+});
+searchInput && (searchInput.oninput = (e) => {
+  channelFilter = e.target.value || '';
+  renderList();
+});
+
+// --- Playlists par défaut (à la demande) ---
+async function ensureDefaultPlaylistsLoaded(force){
+  if (defaultPlaylists.length && !force) return;
+  try{
+    const res = await fetch('playlists.json', { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    defaultPlaylists = (data.playlists||[]).filter(x => x.url);
+  }catch(e){
+    console.warn('[playlists.json]', e);
+    defaultPlaylists = [];
+  }finally{
+    if (mode==='playlists') renderPlaylists();
+  }
+}
+
+// --- Init ---
+(function init(){
+  // thème
+  const t = loadLS(LS.theme, 'dark');
+  if (t==='light') document.body.classList.add('light');
+
+  // dernière URL (pas d’autoplay, juste remplir le champ)
+  const last = loadLS(LS.last, '');
+  if (last && input) input.value = last;
+
+  // rendu initial (aucun fetch ici)
+  renderList();
+
+  // fermer le splash quoi qu'il arrive (2s)
+  const splash = document.getElementById('splash');
+  setTimeout(()=>{ if (splash){ splash.classList.add('hidden'); setTimeout(()=>splash.remove(),600);} }, 2000);
+
+  console.log('[IPTV] RESCUE script chargé');
+})();
