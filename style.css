@@ -418,4 +418,41 @@ main { padding-bottom: 76px; }  /* ~ hauteur footer + marge */
   padding: 12px;
   z-index: 1;
 }
+/* --- Player plein cadre + message d'attente hors layout --- */
+#playerSection {
+  position: relative !important;
+  display: block !important;
+  background: #000 !important;
+}
+
+/* Les médias remplissent la zone player */
+#videoPlayer,
+#ytPlayer,
+#audioPlayer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  background: #000 !important;
+  display: none;              /* JS mettra 'block' sur le média actif */
+  z-index: 1;
+}
+
+/* Le message d'attente ne pousse rien dans la mise en page */
+#noSource {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 0;                 /* sous le média */
+  opacity: .8;
+}
+
+/* Dès qu'on lit quelque chose, on coupe le message */
+#playerSection.playing #noSource {
+  display: none !important;
+}
 
