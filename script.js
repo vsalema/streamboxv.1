@@ -275,11 +275,15 @@ function escapeHtml(s){
 }
 
 function playByType(url){
+  // NEW: on nettoie, et on masque le message d’attente
+  try { resetPlayers(); } catch {}
+  try { if (noSource) noSource.style.display = 'none'; } catch {}
+
   const t = classify(url);
-  if (t==='youtube') return playYouTube(url);
-  if (t==='mp4') return playVideo(url);
-  if (t==='mp3') return playAudio(url);
-  if (t==='dash') return playDash(url);
+  if (t === 'youtube') return playYouTube(url);
+  if (t === 'mp4') return playVideo(url);
+  if (t === 'mp3') return playAudio(url);
+  if (t === 'dash') return playDash(url);
   return playHls(url);
 }
 
