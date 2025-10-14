@@ -282,14 +282,70 @@ function renderCategories(){
 }
 
 // Render list (channels/favorites/history/playlists)
+
 function renderList(){
   listDiv.innerHTML = '';
-  if (mode==='channels') renderCategories(); else catBar.innerHTML = '';
+  if (mode === 'channels') renderCategories(); else catBar.innerHTML = '';
 
   let data = [];
-  if (mode==='channels') data = channels;
-  if (mode==='favorites') data = favorites;
-  if (mode==='history') data = historyList.map(u => ({ url:u, name:u }));
+  if (mode === 'channels') data = channels;
+  if (mode === 'favorites') data = favorites;
+  if (mode === 'history') data = historyList.map(u => ({ url:u, name:u }));
+  if (mode === 'playlists') { renderPlaylists(); return; }
+
+  if (mode === 'channels' && categoryFilter !== 'ALL') {
+    data = data.filter(x => x.group === categoryFilter);
+  }
+  if (channelFilter) {
+    const q = channelFilter.toLowerCase();
+    data = data.filter(x => (x.name || x.url).toLowerCase().includes(q));
+  }
+
+  data.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="left">
+        <span class="logo-sm">${ renderLogo(item.logo) }</span>
+        <div class="meta">
+          <div class="name">${escapeHtml(item.name || item.url)}</div>
+          ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
+        </div>
+      </div>
+      <span class="star">${isFav(item.url) ? '★' : '☆'}</span>`;
+
+    div.onclick = () => {
+      try { resetPlayers(); } catch {}
+      try { if (typeof noSource !== 'undefined' && noSource) noSource.style.display = 'none'; } catch {}
+      playByType(item.url);
+      updateNowBar(item.name || item.url, item.url);
+      try {
+        if (video && video.style.display === 'block') {
+          video.muted = true;
+          const p = video.play();
+          if (p && p.catch) p.catch(()=>{});
+        }
+      } catch {}
+    };
+
+    const star = div.querySelector('.star');
+    if (star) {
+      star.onclick = (e) => {
+        e.stopPropagation();
+        toggleFavorite(item);
+        renderList();
+      };
+    }
+
+    listDiv.appendChild(div);
+  });
+
+  if (!data.length) {
+    listDiv.innerHTML = '<p style="opacity:0.6;padding:10px;">Aucune donnée.</p>';
+  }
+}
+
+));
   if (mode==='playlists') return renderPlaylists();
 
   if (mode==='channels' && categoryFilter!=='ALL') data = data.filter(x => x.group === categoryFilter);
@@ -372,13 +428,10 @@ function renderLogo(logo){
 
 // Safe escapeHtml
 function escapeHtml(s){
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  };
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return (s || '').replace(/[&<>"']/g, m => map[m]);
+}
+;
   return (s || '').replace(/[&<>"']/g, m => map[m]);
 }
   return (s || '').replace(/[&<>"']/g, m => map[m]);
