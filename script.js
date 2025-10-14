@@ -264,8 +264,14 @@ function renderLogo(logo){
 
 // Safe escapeHtml
 function escapeHtml(s){
-  const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', \"'\":'&#39;' };
-  return (s||'').replace(/[&<>\"']/g, m => map[m]);
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  };
+  return (s || '').replace(/[&<>"']/g, m => map[m]);
 }
 
 function playByType(url){
