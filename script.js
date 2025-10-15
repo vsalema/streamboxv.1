@@ -1430,3 +1430,18 @@ function pingVisibleList(concurrency){
   }
   window.showStats = start; window.hideStats = stop;
 })();
+// Regroupe les boutons de la nowBar dans .nowbar-actions pour l'alignement à droite
+(() => {
+  const bar = document.getElementById('nowBar');
+  if (!bar) return;
+  let actions = bar.querySelector('.nowbar-actions');
+  if (!actions) {
+    actions = document.createElement('div');
+    actions.className = 'nowbar-actions';
+    // déplace tous les boutons/links vers la droite
+    const movers = Array.from(bar.querySelectorAll('button, a'));
+    bar.appendChild(actions);
+    movers.forEach(el => actions.appendChild(el));
+  }
+})();
+
