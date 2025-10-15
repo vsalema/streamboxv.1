@@ -1572,4 +1572,15 @@ function pingVisibleList(concurrency){
   }
   if (verify) verify.style.marginLeft = 'auto';
 })();
+// Scroll horizontal de .tabs avec la molette/trackpad
+(() => {
+  const bar = document.querySelector('.tabs');
+  if (!bar) return;
+  bar.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      bar.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+})();
 
