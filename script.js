@@ -1444,4 +1444,41 @@ function pingVisibleList(concurrency){
     movers.forEach(el => actions.appendChild(el));
   }
 })();
+// Normalise la structure de la nowBar (titre à gauche, actions à droite)
+(function normalizeNowBar(){
+  var bar = document.getElementById('nowBar');
+  if (!bar) return;
+
+  // 1) Crée le conteneur des actions s’il manque
+  var actions = bar.querySelector('.nowbar-actions');
+  if (!actions) {
+    actions = document.createElement('div');
+    actions.className = 'nowbar-actions';
+    bar.appendChild(actions);
+  }
+
+  // 2) Assure un #nowTitle (créé si absent)
+  var title = document.getElementById('nowTitle');
+  if (!title) {
+    title = document.createElement('span');
+    title.id = 'nowTitle';
+    // Récupère un éventuel texte titre perdu dans la barre
+    var txt = '';
+    Array.prototype.slice.call(bar.childNodes).forEach(function(n){
+      if (n.nodeType === 3) txt += n.textContent.trim() + ' ';
+    });
+    if (txt.trim()) title.textContent = txt.trim();
+    // Insère le titre tout au début
+    bar.insertBefore(title, bar.firstChild);
+  }
+
+  // 3) Déplace tous les boutons/links dans .nowbar-actions (droite)
+  Array.prototype.slice.call(bar.querySelectorAll('button, a'))
+    .forEach(function(el){
+      if (!actions.contains(el)) actions.appendChild(el);
+    });
+
+  // 4) Empêche que d’autres styles re-forcent l’alignement
+  bar.style.setProperty('display','grid','important');
+})();
 
