@@ -1160,52 +1160,127 @@ function highlightCurrentSubs(){
   }
 })();
 
-// === NowBar: un seul bouton FS vidéo + bouton FS page =====================
+// === NowBar: FS vidéo vs FS page — version clean ==========================
 (() => {
-  const actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  const nowBar = document.getElementById('nowBar');
+  const actions = nowBar ? (nowBar.querySelector('.nowbar-actions') || nowBar) : null;
   if (!actions) return;
 
-  // 1) Nettoyage : vire les doublons FS sans id (créés par d'anciens patchs)
-  const btns = actions.querySelectorAll('button, a');
-  btns.forEach(b => {
+  const videoEl = document.getElementById('videoPlayer');
+  const playerSection = document.getElementById('playerSection');
+  const doc = document;
+  const docEl = document.documentElement;
+
+  // 1) Supprime les vieux boutons FS sans id (doublons fantômes)
+  Array.prototype.slice.call(actions.querySelectorAll('button, a')).forEach(b => {
     const t = (b.textContent || '').trim();
-    const hasId = !!b.id;
-    const looksFS = t === '⤢' || t === '⤡' || /plein\s*écran/i.test(b.title || '');
-    if (!hasId && looksFS) b.remove();
+    const looksFS = (t === '⤢' || t === '⤡' || t === '🗖' || t === '🗗');
+    if (looksFS && !b.id) b.remove();
   });
 
-  // 2) Ajoute le bouton "Page entière" si absent
-  if (!document.getElementById('fsPageBtn')) {
-    const fsPageBtn = document.createElement('button');
+  // 2) Crée/garantit les 2 boutons
+  let fsVideoBtn = document.getElementById('fsBtn');
+  if (!fsVideoBtn) {
+    fsVideoBtn = document.createElement('button');
+    fsVideoBtn.id = 'fsBtn';
+    fsVideoBtn.title = 'Plein écran (vidéo)';
+    fsVideoBtn.textContent = '⤢';
+    fsVideoBtn.style.minWidth = '38px';
+    actions.appendChild(fsVideoBtn);
+  }
+
+  let fsPageBtn = document.getElementById('fsPageBtn');
+  if (!fsPageBtn) {
+    fsPageBtn = document.createElement('button');
     fsPageBtn.id = 'fsPageBtn';
-    fsPageBtn.title = 'Plein écran (page entière)';
-    fsPageBtn.textContent = '🗖'; // entrer
+    fsPageBtn.title = 'Plein écran (page)';
+    fsPageBtn.textContent = '🗖';
     fsPageBtn.style.minWidth = '38px';
     actions.appendChild(fsPageBtn);
-
-    const rootEl = document.documentElement;
-    const isPageFS = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-
-    const setLabel = () => {
-      fsPageBtn.textContent = isPageFS() ? '🗗' : '🗖'; // 🗗 = quitter
-      fsPageBtn.title = isPageFS() ? 'Quitter plein écran (page)' : 'Plein écran (page entière)';
-    };
-
-    const togglePageFS = async () => {
-      try {
-        if (isPageFS()) {
-          await (document.exitFullscreen?.() || document.webkitExitFullscreen?.());
-        } else {
-          await (rootEl.requestFullscreen?.() || rootEl.webkitRequestFullscreen?.());
-        }
-      } catch (e) { console.warn('[page fullscreen]', e); }
-      setLabel();
-    };
-
-    fsPageBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePageFS(); });
-    document.addEventListener('fullscreenchange', setLabel);
-    document.addEventListener('webkitfullscreenchange', setLabel);
-    setLabel();
   }
+
+  const isFullscreen = () => !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+  const fsTarget = () => doc.fullscreenElement || doc.webkitFullscreenElement;
+
+  function setLabels(){
+    const target = fsTarget();
+    const videoFs = (target === videoEl || target === playerSection);
+    fsVideoBtn.textContent = videoFs ? '⤡' : '⤢';
+    fsVideoBtn.title = videoFs ? 'Quitter plein écran (vidéo)' : 'Plein écran (vidéo)';
+    const pageFs = (target === docEl || target === doc.body);
+    fsPageBtn.textContent = pageFs ? '🗗' : '🗖';
+    fsPageBtn.title = pageFs ? 'Quitter plein écran (page)' : 'Plein écran (page)';
+  }
+
+  async function toggleVideoFS(){
+    try {
+      // iOS Safari: plein écran natif de la <video> (ne déclenche pas fullscreenchange)
+      if (videoEl && typeof videoEl.webkitEnterFullscreen === 'function' && !isFullscreen()) {
+        videoEl.webkitEnterFullscreen();
+        fsVideoBtn.textContent = '⤡';
+        fsVideoBtn.title = 'Quitter plein écran (vidéo)';
+        return;
+      }
+      if (isFullscreen()) {
+        await (doc.exitFullscreen ? doc.exitFullscreen() : doc.webkitExitFullscreen && doc.webkitExitFullscreen());
+      } else {
+        const target = (videoEl && videoEl.style.display === 'block') ? videoEl : playerSection;
+        if (target.requestFullscreen) await target.requestFullscreen();
+        else if (target.webkitRequestFullscreen) await target.webkitRequestFullscreen();
+      }
+    } catch(e){ console.warn('[FS video]', e); }
+    setLabels();
+  }
+
+  async function togglePageFS(){
+    try {
+      if (isFullscreen()) {
+        await (doc.exitFullscreen ? doc.exitFullscreen() : doc.webkitExitFullscreen && doc.webkitExitFullscreen());
+      } else {
+        if (docEl.requestFullscreen) await docEl.requestFullscreen();
+        else if (docEl.webkitRequestFullscreen) await docEl.webkitRequestFullscreen();
+      }
+    } catch(e){ console.warn('[FS page]', e); }
+    setLabels();
+  }
+
+  // 3) Handlers (écrasent les anciens)
+  fsVideoBtn.onclick = (e) => { e.stopPropagation(); toggleVideoFS(); };
+  fsPageBtn.onclick = (e) => { e.stopPropagation(); togglePageFS(); };
+
+  doc.addEventListener('fullscreenchange', setLabels);
+  doc.addEventListener('webkitfullscreenchange', setLabels);
+  setLabels();
+})();
+// -- Forcer des icônes distinctes pour FS vidéo vs FS page --
+(() => {
+  const doc = document, docEl = document.documentElement;
+  const videoEl = document.getElementById('videoPlayer');
+  const playerSection = document.getElementById('playerSection');
+  const fsVideoBtn = document.getElementById('fsBtn');
+  const fsPageBtn  = document.getElementById('fsPageBtn');
+  if (!fsVideoBtn || !fsPageBtn) return;
+
+  const isFS = () => !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+  const targetFS = () => doc.fullscreenElement || doc.webkitFullscreenElement;
+
+  function setLabels(){
+    const t = targetFS();
+    const videoFs = (t === videoEl || t === playerSection);
+    const pageFs  = (t === docEl || t === doc.body);
+
+    // Vidéo: ⤢ (entrer) / ⤡ (quitter)
+    fsVideoBtn.textContent = videoFs ? '⤡' : '⤢';
+    fsVideoBtn.title = videoFs ? 'Quitter plein écran (vidéo)' : 'Plein écran (vidéo)';
+
+    // Page: 🗖 (entrer) / 🗗 (quitter)
+    fsPageBtn.textContent = pageFs ? '🗗' : '🗖';
+    fsPageBtn.title = pageFs ? 'Quitter plein écran (page)' : 'Plein écran (page)';
+  }
+
+  // ré-applique après toute bascule
+  doc.addEventListener('fullscreenchange', setLabels);
+  doc.addEventListener('webkitfullscreenchange', setLabels);
+  setLabels();
 })();
 
