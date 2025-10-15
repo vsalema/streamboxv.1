@@ -691,3 +691,225 @@ function highlightCurrentAudio(){
   const items = menu.querySelectorAll('.am-item');
   items.forEach((el, i) => el.classList.toggle('sel', !!tracks[i]?.selected));
 }
+/* ===== Audio Tracks SAFE v2 (HLS/DASH/native) — paste at end ===== */
+
+/* 1) Helpers sûrs (sans optional chaining / backticks) */
+function listAudioTracks(){
+  // HLS.js
+  try {
+    if (typeof currentHls !== 'undefined' && currentHls && typeof currentHls.audioTracks !== 'undefined') {
+      var idx = (typeof currentHls.audioTrack === 'number') ? currentHls.audioTrack : -1;
+      var arr = [];
+      for (var i=0; i<currentHls.audioTracks.length; i++) {
+        var t = currentHls.audioTracks[i] || {};
+        arr.push({
+          id: i,
+          label: t.name || t.lang || ('Piste ' + (i+1)),
+          lang: t.lang || '',
+          selected: i === idx,
+          type: 'hls'
+        });
+      }
+      return arr;
+    }
+  } catch(e){}
+
+  // dash.js
+  try {
+    if (typeof currentDash !== 'undefined' && currentDash && typeof currentDash.getTracksFor === 'function') {
+      var tracks = currentDash.getTracksFor('audio') || [];
+      var cur = currentDash.getCurrentTrack('audio');
+      var out = [];
+      for (var j=0; j<tracks.length; j++) {
+        var d = tracks[j] || {};
+        var lab = d.lang || (d.labels && d.labels[0]) || d.role || 'Audio';
+        var sel = !!(cur && (cur.id === d.id));
+        out.push({ id: d, label: lab, lang: d.lang || '', selected: sel, type: 'dash' });
+      }
+      return out;
+    }
+  } catch(e){}
+
+  // Natif (rarement dispo)
+  try {
+    if (typeof video !== 'undefined' && video && video.audioTracks && video.audioTracks.length) {
+      var nout = [];
+      for (var k=0; k<video.audioTracks.length; k++) {
+        var nt = video.audioTracks[k];
+        nout.push({
+          id: k,
+          label: nt.label || nt.language || ('Piste ' + (k+1)),
+          lang: nt.language || '',
+          selected: !!nt.enabled,
+          type: 'native'
+        });
+      }
+      return nout;
+    }
+  } catch(e){}
+
+  return [];
+}
+
+function selectAudioTrack(track){
+  if (!track) return;
+  try {
+    if (track.type === 'hls' && typeof currentHls !== 'undefined' && currentHls) {
+      currentHls.audioTrack = track.id;
+    } else if (track.type === 'dash' && typeof currentDash !== 'undefined' && currentDash) {
+      currentDash.setCurrentTrack(track.id);
+    } else if (track.type === 'native' && typeof video !== 'undefined' && video && video.audioTracks) {
+      for (var i=0;i<video.audioTracks.length;i++){
+        video.audioTracks[i].enabled = (i === track.id);
+      }
+    }
+  } catch(e){}
+  try { highlightCurrentAudio(); } catch(e){}
+}
+
+/* 2) Menu UI (nowBar) — version sans templates */
+(function attachAudioBtn(){
+  var actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+  if (document.getElementById('audioBtn')) return;
+
+  var wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+
+  var btn = document.createElement('button');
+  btn.id = 'audioBtn';
+  btn.title = 'Piste audio';
+  btn.textContent = '🎧 Audio';
+  wrap.appendChild(btn);
+
+  var menu = document.createElement('div');
+  menu.id = 'audioMenu';
+  menu.style.display = 'none';
+  wrap.appendChild(menu);
+
+  actions.appendChild(wrap);
+
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
+    if (menu.style.display === 'block') renderAudioMenu();
+  });
+
+  document.addEventListener('click', function(e){
+    if (!wrap.contains(e.target)) menu.style.display = 'none';
+  });
+})();
+
+function renderAudioMenu(){
+  var menu = document.getElementById('audioMenu');
+  if (!menu) return;
+
+  var tracks = listAudioTracks();
+  if (!tracks.length) {
+    menu.innerHTML = '<div class="am-empty">Aucune piste détectée</div>';
+    return;
+  }
+
+  var html = [];
+  for (var i=0; i<tracks.length; i++){
+    var t = tracks[i];
+    var cls = t.selected ? 'am-item sel' : 'am-item';
+    var langHtml = t.lang ? (' <span class="am-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
+    html.push(
+      '<button class="' + cls + '" data-i="' + i + '">' +
+      escapeHtml(t.label) + langHtml +
+      '</button>'
+    );
+  }
+  menu.innerHTML = html.join('');
+
+  var items = menu.querySelectorAll('.am-item');
+  for (var j=0; j<items.length; j++){
+    (function(idx){
+      items[idx].onclick = function(ev){
+        ev.stopPropagation();
+        var chosen = tracks[idx];
+        selectAudioTrack(chosen);
+        menu.style.display = 'none';
+      };
+    })(j);
+  }
+}
+
+function highlightCurrentAudio(){
+  var menu = document.getElementById('audioMenu');
+  if (!menu) return;
+  var tracks = listAudioTracks();
+  var items = menu.querySelectorAll('.am-item');
+  for (var i=0; i<items.length; i++){
+    var sel = !!(tracks[i] && tracks[i].selected);
+    if (sel) items[i].classList.add('sel'); else items[i].classList.remove('sel');
+  }
+}
+
+/* 3) Remplacements sûrs de playHls / playDash (écrasent les versions plus haut) */
+function playHls(url){
+  try { video.style.display = 'block'; } catch(e){}
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
+
+  try {
+    if (window.Hls && window.Hls.isSupported && window.Hls.isSupported()) {
+      if (typeof currentHls !== 'undefined' && currentHls && currentHls.destroy) { try { currentHls.destroy(); } catch(e){} }
+      var hls = new window.Hls();
+      currentHls = hls;
+      try {
+        hls.on(window.Hls.Events.ERROR, function(evt, data){
+          if (data && data.fatal) { try { hls.destroy(); } catch(e){} currentHls = null; video.src = url; }
+        });
+        hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ try { renderAudioMenu(); } catch(e){} });
+        hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, function(){ try { highlightCurrentAudio(); } catch(e){} });
+      } catch(e){}
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url; // Safari natif
+      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(e){} }, { once:true });
+    }
+  } catch (e) {
+    try { console.error('[playHls]', e); } catch(_){}
+    try { video.src = url; } catch(_){}
+  }
+  try { updateNowBar(undefined, url); } catch(_){}
+}
+
+function playDash(url){
+  try { video.style.display = 'block'; } catch(e){}
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
+
+  try {
+    var DASH = (window.dashjs && window.dashjs.MediaPlayer) ? window.dashjs.MediaPlayer : null;
+    if (DASH && typeof DASH.create === 'function') {
+      if (typeof currentDash !== 'undefined' && currentDash && currentDash.reset) { try { currentDash.reset(); } catch(e){} }
+      var p = DASH.create();
+      currentDash = p;
+      p.initialize(video, url, true);
+      try {
+        p.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, function(){ try { renderAudioMenu(); } catch(e){} });
+        p.on(window.dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, function(){ try { highlightCurrentAudio(); } catch(e){} });
+      } catch(e){}
+    } else {
+      video.src = url; // fallback
+      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(e){} }, { once:true });
+    }
+  } catch(e){
+    try { console.error('[playDash]', e); } catch(_){}
+    try { video.src = url; } catch(_){}
+  }
+  try { updateNowBar(undefined, url); } catch(_){}
+}
+
+/* 4) Bonus: s'assurer que resetPlayers détruit HLS/DASH */
+if (typeof resetPlayers === 'function') {
+  var __orig_resetPlayers__ = resetPlayers;
+  resetPlayers = function(){
+    try { if (typeof currentHls !== 'undefined' && currentHls && currentHls.destroy) { currentHls.destroy(); currentHls = null; } } catch(e){}
+    try { if (typeof currentDash !== 'undefined' && currentDash && currentDash.reset) { currentDash.reset(); currentDash = null; } } catch(e){}
+    try { __orig_resetPlayers__.call(this); } catch(e){}
+  };
+}
+/* ===== End Audio Tracks SAFE v2 ===== */
