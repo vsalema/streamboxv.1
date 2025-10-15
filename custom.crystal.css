@@ -349,3 +349,21 @@ body.light #nowBar {
 }
 #statsOverlay.hidden { display: none; }
 #statsOverlay .title { font-weight:700; margin-bottom: 4px; display:block; }
+/* === FIX: le logo d'entête ne doit JAMAIS s'étirer === */
+header .logo { display:flex; align-items:center; flex:0 0 auto; }
+
+header .header-logo,
+header .logo img {
+  width: auto !important;
+  max-width: 60px !important;   /* ajuste 48–72px si tu veux */
+  height: 40px !important;      /* hauteur fixe du logo */
+  max-height: 44px !important;
+  object-fit: contain !important;
+  display: inline-block !important;
+}
+
+/* Si tu as une règle globale type img{width:100%}, on l'annule ici */
+header img { width: auto !important; }
+
+/* Sécurité: le header ne « grandit » pas avec l’image */
+header { min-height: 56px; }
