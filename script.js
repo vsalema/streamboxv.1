@@ -275,6 +275,18 @@ function renderPlaylists(){
 function renderList(){
   listDiv.innerHTML = '';
   if (mode==='channels') renderCategories(); else catBar.innerHTML = '';
+// Barre d'action spécifique à l'historique
+if (mode === 'history') {
+  const bar = document.createElement('div');
+  bar.className = 'history-toolbar';
+  bar.innerHTML = `
+    <button id="btnClearHistory" class="btn-danger" title="Effacer tout l'historique">🧹 Effacer l'historique</button>
+  `;
+  bar.querySelector('#btnClearHistory').onclick = () => {
+    if (confirm('Effacer tout l’historique ?')) clearHistory();
+  };
+  listDiv.appendChild(bar);
+}
 
   let data = [];
   if (mode==='channels') data = channels;
@@ -419,4 +431,26 @@ setTimeout(updatePlayerLayout, 50);
   s.addEventListener('click', hide, { once:true });  // clic = fermer
 })();
 
+// Petit toast (optionnel) pour confirmer l'action
+function showToast(msg){
+  try {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1600);
+  } catch {}
+}
+
+// Effacer l'historique (mémoire + écran)
+function clearHistory(){
+  try {
+    historyList = [];
+    saveLS(LS.hist, historyList);   // LS.hist = 'iptv.history'
+    if (mode === 'history') renderList();
+    showToast('Historique effacé ✅');
+  } catch(e){
+    console.error('[clearHistory]', e);
+  }
+}
 
