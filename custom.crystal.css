@@ -367,3 +367,117 @@ header img { width: auto !important; }
 
 /* Sécurité: le header ne « grandit » pas avec l’image */
 header { min-height: 56px; }
+/* ===================== LAYOUT RESCUE PATCH ===================== */
+/* Base saine */
+html, body { height: 100% !important; }
+body {
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Header stable + logo non extensible */
+header {
+  position: relative !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--bg-alt) !important;
+}
+header .logo { display:flex !important; align-items:center !important; flex:0 0 auto !important; }
+header .header-logo, header .logo img {
+  width: auto !important; height: 40px !important; max-height: 44px !important;
+  max-width: 60px !important; object-fit: contain !important; display: inline-block !important;
+}
+header img { width: auto !important; } /* annule img{width:100%} global */
+
+/* Grille principale : colonne gauche + player */
+main {
+  position: relative !important;
+  z-index: 1 !important;
+  flex: 1 1 auto !important;
+  display: grid !important;
+  grid-template-columns: 360px 1fr !important;
+  min-height: 0 !important;
+  overflow: hidden !important; /* rien ne doit déborder hors du main */
+}
+
+/* Colonne gauche (listes/catégories) */
+aside {
+  position: relative !important;
+  background: var(--bg-alt) !important;
+  border-right: 1px solid var(--border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+#catBar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  white-space: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  max-height: 40px !important;
+  flex: 0 0 auto !important;
+}
+#catBar::-webkit-scrollbar { display: none; }
+#list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  padding: 6px !important;
+}
+
+/* Zone player à droite */
+#playerSection {
+  position: relative !important;
+  background: #000 !important;
+  min-height: 300px !important;
+  overflow: hidden !important;
+}
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  object-fit: contain !important;
+  display: none; background: #000 !important; z-index: 1;
+}
+#noSource {
+  position: absolute !important; inset: 0 !important;
+  display: flex !important; align-items:center !important; justify-content:center !important;
+  z-index: 0 !important; pointer-events: none !important;
+}
+#playerSection.playing #noSource { display: none !important; }
+
+/* NowBar en bas, sans casser les clics sur le player */
+footer { height: 64px !important; font-size: 0 !important; border-top: none !important; background: transparent !important; }
+#nowBar {
+  position: fixed !important; left: 12px !important; right: 12px !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  z-index: 1000 !important; pointer-events: none !important;
+  display: flex !important; gap: 8px !important; align-items: center !important;
+}
+#nowTitle {
+  flex: 1 1 auto !important; min-width: 0 !important;
+  overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
+}
+#nowBar .nowbar-actions { flex: 0 0 auto !important; display:flex !important; gap:8px !important; }
+#nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto !important; }
+
+/* Évite les positions absolues globales qui cassent tout */
+body > * { position: static; } /* header/main/footer restent gérés par leurs règles ci-dessus */
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr !important; }
+  aside { height: 260px !important; }
+}
