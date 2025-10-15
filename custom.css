@@ -16,3 +16,52 @@ footer { height: 64px; font-size: 0; border-top: none; }
 }
 #nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto; }
 main { padding-bottom: 76px; }
+/* === Unifier le rendu du player dans TOUTES les sections (Chaînes, Favoris, etc.) === */
+
+/* Le conteneur player est un cadre fixe qui coupe ce qui dépasse */
+#playerSection {
+  position: relative !important;
+  display: block !important;
+  background: #000 !important;
+  overflow: hidden !important;    /* ← évite tout débordement visuel */
+}
+
+/* Tous les médias (video/iframe/audio) occupent exactement le cadre */
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute !important;
+  inset: 0 !important;            /* top/right/bottom/left = 0 */
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: none;                   /* le JS met “block” sur celui qui joue */
+  background: #000 !important;
+  object-fit: contain !important;  /* même comportement visuel (pas de crop) */
+  border: 0 !important;            /* utile pour l’iframe */
+  box-sizing: border-box !important;
+  z-index: 1;
+}
+
+/* Normalise l’iframe (YouTube) pour qu’elle se comporte comme la vidéo */
+#ytPlayer {
+  display: none;                   /* le JS l’affiche quand YT est en lecture */
+  aspect-ratio: auto !important;   /* pas de ratio imposé différent de <video> */
+}
+
+/* Le message d’attente ne pousse rien et passe dessous */
+#noSource {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center; 
+  justify-content: center;
+  z-index: 0 !important;           /* sous le média */
+  pointer-events: none;
+}
+#playerSection.playing #noSource { display: none !important; }
+
+/* (Optionnel) si la colonne de gauche influence la hauteur, on sécurise */
+main { overflow: hidden; }         /* évite les décalages de grille */
+
