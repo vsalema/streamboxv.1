@@ -913,3 +913,231 @@ if (typeof resetPlayers === 'function') {
   };
 }
 /* ===== End Audio Tracks SAFE v2 ===== */
+/* ===== Audio Tracks SAFE v3 — coller tout en bas, remplace les versions précédentes ===== */
+
+/* Globals si absents */
+if (typeof window.currentHls === 'undefined') window.currentHls = null;
+if (typeof window.currentDash === 'undefined') window.currentDash = null;
+
+/* 0) Sécurité : étend resetPlayers pour détruire HLS/DASH avant le reset existant */
+if (typeof window.__orig_resetPlayers__ === 'undefined' && typeof resetPlayers === 'function') {
+  window.__orig_resetPlayers__ = resetPlayers;
+  resetPlayers = function(){
+    try { if (window.currentHls && window.currentHls.destroy) { window.currentHls.destroy(); } } catch(e){}
+    window.currentHls = null;
+    try { if (window.currentDash && window.currentDash.reset) { window.currentDash.reset(); } } catch(e){}
+    window.currentDash = null;
+    try { window.__orig_resetPlayers__.call(this); } catch(e){}
+  };
+}
+
+/* 1) Repatch playHls / playDash (robustes, sans syntaxe “moderne”) */
+function playHls(url){
+  try { video.style.display = 'block'; } catch(e){}
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
+
+  try {
+    if (window.Hls && window.Hls.isSupported && window.Hls.isSupported()) {
+      try { if (window.currentHls && window.currentHls.destroy) window.currentHls.destroy(); } catch(e){}
+      var hls = new window.Hls();
+      window.currentHls = hls;
+
+      try {
+        hls.on(window.Hls.Events.ERROR, function(evt, data){
+          if (data && data.fatal) {
+            try { hls.destroy(); } catch(_){}
+            window.currentHls = null;
+            video.src = url;
+          }
+        });
+        hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ try { renderAudioMenu(); } catch(_){ } });
+        hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, function(){ try { highlightCurrentAudio(); } catch(_){ } });
+      } catch(_){}
+
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url; // Safari natif
+      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(_){ } }, { once:true });
+    }
+  } catch (e) {
+    try { console.error('[playHls]', e); } catch(_){}
+    try { video.src = url; } catch(_){}
+  }
+
+  try { updateNowBar(undefined, url); } catch(_){}
+}
+
+function playDash(url){
+  try { video.style.display = 'block'; } catch(e){}
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
+
+  try {
+    var DASH = (window.dashjs && window.dashjs.MediaPlayer) ? window.dashjs.MediaPlayer : null;
+    if (DASH && typeof DASH.create === 'function') {
+      try { if (window.currentDash && window.currentDash.reset) window.currentDash.reset(); } catch(_){}
+      var p = DASH.create();
+      window.currentDash = p;
+      p.initialize(video, url, true);
+      try {
+        p.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, function(){ try { renderAudioMenu(); } catch(_){ } });
+        p.on(window.dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, function(){ try { highlightCurrentAudio(); } catch(_){ } });
+      } catch(_){}
+    } else {
+      video.src = url; // fallback
+      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(_){ } }, { once:true });
+    }
+  } catch (e) {
+    try { console.error('[playDash]', e); } catch(_){}
+    try { video.src = url; } catch(_){}
+  }
+
+  try { updateNowBar(undefined, url); } catch(_){}
+}
+
+/* 2) Helpers: lister/sélectionner pistes (HLS/DASH/natif) */
+function listAudioTracks(){
+  // HLS.js
+  try {
+    if (window.currentHls && window.currentHls.audioTracks) {
+      var idx = (typeof window.currentHls.audioTrack === 'number') ? window.currentHls.audioTrack : -1;
+      var a = [];
+      for (var i=0; i<window.currentHls.audioTracks.length; i++){
+        var t = window.currentHls.audioTracks[i] || {};
+        a.push({
+          id: i,
+          label: t.name || t.lang || ('Piste ' + (i+1)),
+          lang: t.lang || '',
+          selected: i === idx,
+          type: 'hls'
+        });
+      }
+      return a;
+    }
+  } catch(_){}
+
+  // dash.js
+  try {
+    if (window.currentDash && typeof window.currentDash.getTracksFor === 'function') {
+      var tracks = window.currentDash.getTracksFor('audio') || [];
+      var cur = window.currentDash.getCurrentTrack('audio');
+      var out = [];
+      for (var j=0; j<tracks.length; j++){
+        var d = tracks[j] || {};
+        var lab = d.lang || (d.labels && d.labels[0]) || d.role || 'Audio';
+        var sel = !!(cur && (cur.id === d.id));
+        out.push({ id: d, label: lab, lang: d.lang || '', selected: sel, type: 'dash' });
+      }
+      return out;
+    }
+  } catch(_){}
+
+  // Natif (rare)
+  try {
+    if (video && video.audioTracks && video.audioTracks.length){
+      var nat = [];
+      for (var k=0; k<video.audioTracks.length; k++){
+        var nt = video.audioTracks[k];
+        nat.push({ id: k, label: nt.label || nt.language || ('Piste ' + (k+1)), lang: nt.language || '', selected: !!nt.enabled, type: 'native' });
+      }
+      return nat;
+    }
+  } catch(_){}
+
+  return [];
+}
+
+function selectAudioTrack(track){
+  if (!track) return;
+  try {
+    if (track.type === 'hls' && window.currentHls) {
+      window.currentHls.audioTrack = track.id;
+    } else if (track.type === 'dash' && window.currentDash) {
+      window.currentDash.setCurrentTrack(track.id);
+    } else if (track.type === 'native' && video && video.audioTracks) {
+      for (var i=0; i<video.audioTracks.length; i++){
+        video.audioTracks[i].enabled = (i === track.id);
+      }
+    }
+  } catch(e){}
+  try { highlightCurrentAudio(); } catch(_){}
+}
+
+/* 3) UI nowBar: bouton 🎧 + menu (sans templates/backticks) */
+(function attachAudioBtn(){
+  var actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+  if (document.getElementById('audioBtn')) return;
+
+  var wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+
+  var btn = document.createElement('button');
+  btn.id = 'audioBtn';
+  btn.title = 'Piste audio';
+  btn.textContent = '🎧 Audio';
+  wrap.appendChild(btn);
+
+  var menu = document.createElement('div');
+  menu.id = 'audioMenu';
+  menu.style.display = 'none';
+  wrap.appendChild(menu);
+
+  actions.appendChild(wrap);
+
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
+    if (menu.style.display === 'block') renderAudioMenu();
+  });
+
+  document.addEventListener('click', function(e){
+    if (!wrap.contains(e.target)) menu.style.display = 'none';
+  });
+})();
+
+function renderAudioMenu(){
+  var menu = document.getElementById('audioMenu');
+  if (!menu) return;
+
+  var tracks = listAudioTracks();
+  if (!tracks.length) {
+    menu.innerHTML = '<div class="am-empty">Aucune piste détectée</div>';
+    return;
+  }
+
+  var html = [];
+  for (var i=0; i<tracks.length; i++){
+    var t = tracks[i];
+    var cls = t.selected ? 'am-item sel' : 'am-item';
+    var langHtml = t.lang ? (' <span class="am-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
+    html.push('<button class="' + cls + '" data-i="' + i + '">' + escapeHtml(t.label) + langHtml + '</button>');
+  }
+  menu.innerHTML = html.join('');
+
+  var items = menu.querySelectorAll('.am-item');
+  for (var j=0; j<items.length; j++){
+    (function(idx){
+      items[idx].onclick = function(ev){
+        ev.stopPropagation();
+        var chosen = tracks[idx];
+        selectAudioTrack(chosen);
+        menu.style.display = 'none';
+      };
+    })(j);
+  }
+}
+
+function highlightCurrentAudio(){
+  var menu = document.getElementById('audioMenu');
+  if (!menu) return;
+  var tracks = listAudioTracks();
+  var items = menu.querySelectorAll('.am-item');
+  for (var i=0; i<items.length; i++){
+    var sel = !!(tracks[i] && tracks[i].selected);
+    if (sel) items[i].classList.add('sel'); else items[i].classList.remove('sel');
+  }
+}
+/* ===== /Audio Tracks SAFE v3 ===== */
+
+
