@@ -1481,4 +1481,86 @@ function pingVisibleList(concurrency){
   // 4) Empêche que d’autres styles re-forcent l’alignement
   bar.style.setProperty('display','grid','important');
 })();
+// === NowBar Normalizer (structure + placement à droite) ===================
+(function initNowBarFix(){
+  function normalizeNowBar(){
+    var bar = document.getElementById('nowBar');
+    if (!bar) return;
+
+    // 1) Conteneur des actions
+    var actions = bar.querySelector('.nowbar-actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.className = 'nowbar-actions';
+      bar.appendChild(actions);
+    }
+
+    // 2) Titre
+    var title = document.getElementById('nowTitle');
+    if (!title) {
+      title = document.createElement('span');
+      title.id = 'nowTitle';
+      // récupère texte perdu éventuel
+      var txt = '';
+      Array.prototype.slice.call(bar.childNodes).forEach(function(n){
+        if (n.nodeType === 3) txt += n.textContent.trim() + ' ';
+      });
+      if (txt.trim()) title.textContent = txt.trim();
+      bar.insertBefore(title, bar.firstChild);
+    }
+
+    // 3) Déplacer tous les contrôles dans .nowbar-actions
+    // On essaie de déplacer les WRAPPERS (audio/subs = bouton + menu)
+    function moveButtonById(id){
+      var btn = document.getElementById(id);
+      if (!btn) return;
+      var wrap = btn.parentElement;
+      // Si le parent contient aussi le menu (#audioMenu / #subsMenu) on déplace le parent
+      var hasMenu = wrap && (wrap.querySelector('#audioMenu') || wrap.querySelector('#subsMenu'));
+      actions.appendChild(hasMenu ? wrap : btn);
+    }
+
+    ['fsBtn','fsPageBtn','copyBtn','openBtn','statsBtn','audioBtn','subsBtn'].forEach(moveButtonById);
+
+    // Déplacer tous les autres buttons/links “orphelins”
+    Array.prototype.slice.call(bar.querySelectorAll('button, a')).forEach(function(el){
+      if (el.id === 'nowTitle') return;
+      if (actions.contains(el)) return;
+      // Éviter de déplacer un menu (audioMenu/subsMenu)
+      if (el.id === 'audioMenu' || el.id === 'subsMenu') return;
+      actions.appendChild(el);
+    });
+
+    // 4) Styles “anti-casse” directement en inline pour être sûrs
+    bar.style.setProperty('position','fixed','important');
+    bar.style.setProperty('left','12px','important');
+    bar.style.setProperty('right','12px','important');
+    bar.style.setProperty('bottom','max(12px, env(safe-area-inset-bottom))','important');
+    bar.style.setProperty('transform','none','important');
+    bar.style.setProperty('width','auto','important');
+    bar.style.setProperty('display','grid','important');
+    bar.style.setProperty('grid-template-columns','1fr auto','important');
+    bar.style.setProperty('align-items','center','important');
+    bar.style.setProperty('column-gap','8px','important');
+    bar.style.setProperty('pointer-events','none','important');
+
+    actions.style.setProperty('display','inline-flex','important');
+    actions.style.setProperty('gap','8px','important');
+    actions.style.setProperty('justify-self','end','important');
+    actions.style.setProperty('pointer-events','auto','important');
+  }
+
+  // Lancer quand le DOM est prêt + rejouer un peu après (si UI dynamique)
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', normalizeNowBar);
+  } else {
+    normalizeNowBar();
+  }
+  // Rejets pour les éléments ajoutés plus tard
+  setTimeout(normalizeNowBar, 200);
+  setTimeout(normalizeNowBar, 800);
+
+  // Expose pour que tu puisses l’appeler après tout changement d’UI
+  window.fixNowBar = normalizeNowBar;
+})();
 
