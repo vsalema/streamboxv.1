@@ -481,3 +481,55 @@ body > * { position: static; } /* header/main/footer restent gérés par leurs r
   main { grid-template-columns: 1fr !important; }
   aside { height: 260px !important; }
 }
+/* === NOWBAR FIX (taille & alignement) === */
+#nowBar {
+  font-size: 14px !important;              /* annule l’héritage de footer */
+  position: fixed; left: 12px; right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  pointer-events: none;                     /* on laisse les boutons cliquer… */
+}
+#nowBar .nowbar-actions {                  /* …mais seulement eux ont les clics */
+  pointer-events: auto;
+  display: flex !important;
+  gap: 8px !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  margin-left: auto !important;            /* pousse les actions à droite */
+}
+#nowTitle {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* === TAILLES UNIFORMES DES BOUTONS/INPUTS === */
+button, input, select {
+  font-size: 14px !important;              /* évite les mini-tailles héritées */
+  line-height: 1 !important;
+  height: 36px !important;                 /* taille confortable */
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+}
+#nowBar button, #nowBar a {
+  height: 34px !important;                 /* un peu plus compacts dans la barre */
+  min-width: 38px !important;
+  font-size: 14px !important;
+}
+
+/* icônes FS et menus audio/subs */
+#fsBtn, #fsPageBtn, #audioBtn, #subsBtn { min-width: 38px !important; text-align: center; }
+
+/* Sécurité : l’input de recherche en sidebar ne doit pas déborder */
+aside input#searchInput {
+  height: 34px !important;
+  font-size: 14px !important;
+}
+
+/* Optionnel : si quelque part tu avais font-size:0; sur footer, garde-le mais
+   on s’assure que #nowBar ne l’hérite pas (déjà réglé via font-size ci-dessus) */
