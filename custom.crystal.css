@@ -197,6 +197,342 @@ main { padding-bottom: 80px; overflow: hidden; }
   bottom: 20px; background: rgba(0,0,0,.85); color:#fff;
   padding: 10px 14px; border-radius: 10px; z-index: 10000;
 }
+/* === Crystal — variante claire === */
+body.light {
+  --bg-crystal: radial-gradient(1200px 800px at 10% -10%, #f7fbff 0%, #ecf3ff 45%, #e9f0ff 100%);
+  --glass-bg: rgba(255,255,255,0.55);
+  --glass-stroke: rgba(0,0,0,0.08);
+  --glass-hover: rgba(255,255,255,0.7);
+  --glass-strong: rgba(255,255,255,0.75);
+  --blur: 14px;
+
+  --accent: #2563eb;
+  --accent-2: #3b82f6;
+  --accent-glow: 0 0 18px rgba(37,99,235,.35);
+
+  --text-strong: #0f172a;
+  --text-soft: #334155;
+  --stroke: 1px solid var(--glass-stroke);
+}
+
+/* Ajuste vite le player/nowBar pour contraste en clair */
+body.light #playerSection {
+  background: rgba(255,255,255,0.65) !important;
+}
+body.light #nowBar {
+  background: rgba(255,255,255,0.55) !important;
+  color: var(--text-strong) !important;
+}
+
+/* === Fix layout nowBar: titre + actions alignés sans chevauchement === */
+#nowBar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 8px 10px !important;
+  pointer-events: none !important; /* on garde le pass-through global */
+  box-sizing: border-box !important;
+}
+
+/* Titre: prend la place dispo, ellipsé si trop long */
+#nowTitle {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;              /* clé pour activer ellipsis en flex */
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  margin-right: 8px !important;
+  pointer-events: auto !important;       /* au cas où click copy titre, etc. */
+}
+
+/* Zone actions à droite */
+#nowBar .nowbar-actions {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  pointer-events: auto !important;       /* boutons cliquables */
+}
+
+/* Boutons/links de la barre */
+#nowBar .nowbar-actions > *,
+#nowBar a,
+#nowBar button {
+  flex: 0 0 auto !important;
+  pointer-events: auto !important;
+  white-space: nowrap !important;
+  max-width: none !important;
+}
+
+/* (optionnel) taille minimale pour des boutons carrés harmonieux */
+#fsBtn, #copyBtn {
+  min-width: 38px !important;
+  text-align: center !important;
+}
+
+/* Menu pistes audio (nowBar) */
+#audioBtn { min-width: 42px; }
+#audioMenu {
+  position: absolute;
+  right: 0;
+  bottom: 42px;
+  background: rgba(15,18,26,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 180px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  z-index: 2000;
+}
+#audioMenu .am-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #fff;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#audioMenu .am-item:hover { background: rgba(255,255,255,.12); }
+#audioMenu .am-item.sel { background: rgba(56,189,248,.25); }
+#audioMenu .am-item .am-lang { opacity: .7; font-size: .85em; }
+.am-empty { color:#cbd5e1; padding: 8px 10px; }
+/* Menu sous-titres (nowBar) */
+#subsBtn { min-width: 42px; }
+#subsMenu {
+  position: absolute;
+  right: 0;
+  bottom: 42px; /* au-dessus de la nowBar */
+  background: rgba(15,18,26,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  z-index: 2000;
+}
+#subsMenu .sm-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #fff;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#subsMenu .sm-item:hover { background: rgba(255,255,255,.12); }
+#subsMenu .sm-item.sel { background: rgba(56,189,248,.25); }
+#subsMenu .sm-item .sm-lang { opacity: .7; font-size: .85em; }
+/* --- Ping badge dans la liste --- */
+.ping-badge {
+  display:inline-block; width:10px; height:10px; border-radius:50%;
+  margin-left:8px; vertical-align:middle; background:#777; /* inconnu */
+  box-shadow: 0 0 0 1px rgba(255,255,255,.15);
+}
+.ping-ok    { background: #22c55e; }   /* vert */
+.ping-warn  { background: #f59e0b; }   /* orange */
+.ping-bad   { background: #ef4444; }   /* rouge */
+.ping-spin  { background: #999; animation: pingspin 1s linear infinite; }
+@keyframes pingspin { to { transform: rotate(360deg); } }
+
+/* --- Stats overlay (dans le player) --- */
+#statsOverlay {
+  position:absolute; top:10px; right:10px; z-index: 1100;
+  background: rgba(0,0,0,.65); color:#fff; font: 12px/1.35 system-ui, sans-serif;
+  border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 8px 10px;
+  max-width: 42ch; pointer-events: none; white-space: pre-line;
+}
+#statsOverlay.hidden { display: none; }
+#statsOverlay .title { font-weight:700; margin-bottom: 4px; display:block; }
+/* === FIX: le logo d'entête ne doit JAMAIS s'étirer === */
+header .logo { display:flex; align-items:center; flex:0 0 auto; }
+
+header .header-logo,
+header .logo img {
+  width: auto !important;
+  max-width: 60px !important;   /* ajuste 48–72px si tu veux */
+  height: 40px !important;      /* hauteur fixe du logo */
+  max-height: 44px !important;
+  object-fit: contain !important;
+  display: inline-block !important;
+}
+
+/* Si tu as une règle globale type img{width:100%}, on l'annule ici */
+header img { width: auto !important; }
+
+/* Sécurité: le header ne « grandit » pas avec l’image */
+header { min-height: 56px; }
+/* ===================== LAYOUT RESCUE PATCH ===================== */
+/* Base saine */
+html, body { height: 100% !important; }
+body {
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Header stable + logo non extensible */
+header {
+  position: relative !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--bg-alt) !important;
+}
+header .logo { display:flex !important; align-items:center !important; flex:0 0 auto !important; }
+header .header-logo, header .logo img {
+  width: auto !important; height: 40px !important; max-height: 44px !important;
+  max-width: 60px !important; object-fit: contain !important; display: inline-block !important;
+}
+header img { width: auto !important; } /* annule img{width:100%} global */
+
+/* Grille principale : colonne gauche + player */
+main {
+  position: relative !important;
+  z-index: 1 !important;
+  flex: 1 1 auto !important;
+  display: grid !important;
+  grid-template-columns: 360px 1fr !important;
+  min-height: 0 !important;
+  overflow: hidden !important; /* rien ne doit déborder hors du main */
+}
+
+/* Colonne gauche (listes/catégories) */
+aside {
+  position: relative !important;
+  background: var(--bg-alt) !important;
+  border-right: 1px solid var(--border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+#catBar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  white-space: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  max-height: 40px !important;
+  flex: 0 0 auto !important;
+}
+#catBar::-webkit-scrollbar { display: none; }
+#list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  padding: 6px !important;
+}
+
+/* Zone player à droite */
+#playerSection {
+  position: relative !important;
+  background: #000 !important;
+  min-height: 300px !important;
+  overflow: hidden !important;
+}
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  object-fit: contain !important;
+  display: none; background: #000 !important; z-index: 1;
+}
+#noSource {
+  position: absolute !important; inset: 0 !important;
+  display: flex !important; align-items:center !important; justify-content:center !important;
+  z-index: 0 !important; pointer-events: none !important;
+}
+#playerSection.playing #noSource { display: none !important; }
+
+/* NowBar en bas, sans casser les clics sur le player */
+footer { height: 64px !important; font-size: 0 !important; border-top: none !important; background: transparent !important; }
+#nowBar {
+  position: fixed !important; left: 12px !important; right: 12px !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  z-index: 1000 !important; pointer-events: none !important;
+  display: flex !important; gap: 8px !important; align-items: center !important;
+}
+#nowTitle {
+  flex: 1 1 auto !important; min-width: 0 !important;
+  overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
+}
+#nowBar .nowbar-actions { flex: 0 0 auto !important; display:flex !important; gap:8px !important; }
+#nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto !important; }
+
+/* Évite les positions absolues globales qui cassent tout */
+body > * { position: static; } /* header/main/footer restent gérés par leurs règles ci-dessus */
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr !important; }
+  aside { height: 260px !important; }
+}
+/* === NOWBAR FIX (taille & alignement) === */
+#nowBar {
+  font-size: 14px !important;              /* annule l’héritage de footer */
+  position: fixed; left: 12px; right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  pointer-events: none;                     /* on laisse les boutons cliquer… */
+}
+#nowBar .nowbar-actions {                  /* …mais seulement eux ont les clics */
+  pointer-events: auto;
+  display: flex !important;
+  gap: 8px !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  margin-left: auto !important;            /* pousse les actions à droite */
+}
+#nowTitle {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* === TAILLES UNIFORMES DES BOUTONS/INPUTS === */
+button, input, select {
+  font-size: 14px !important;              /* évite les mini-tailles héritées */
+  line-height: 1 !important;
+  height: 36px !important;                 /* taille confortable */
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+}
+#nowBar button, #nowBar a {
+  height: 34px !important;                 /* un peu plus compacts dans la barre */
+  min-width: 38px !important;
+  font-size: 14px !important;
+}
+
+/* icônes FS et menus audio/subs */
+#fsBtn, #fsPageBtn, #audioBtn, #subsBtn { min-width: 38px !important; text-align: center; }
+
+/* Sécurité : l’input de recherche en sidebar ne doit pas déborder */
+aside input#searchInput {
+  height: 34px !important;
+  font-size: 14px !important;
+}
+
+/* Optionnel : si quelque part tu avais font-size:0; sur footer, garde-le mais
+   on s’assure que #nowBar ne l’hérite pas (déjà réglé via font-size ci-dessus) */
 
 /* ===== SAFE DELTA: n'affecte que la liste, la nowBar et les catégories ===== */
 
