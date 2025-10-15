@@ -244,4 +244,19 @@ main, main > * { min-height: 0; }
     }
   }, { passive:false });
 })();
+function enableCatWheel(){
+  const bar = document.getElementById('catBar');
+  if (!bar || bar.__wheelBound) return;
+  bar.__wheelBound = true;
+  bar.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      bar.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
+
+// après ta fonction qui (re)génère les catégories :
+renderCategories();  // (exemple)
+enableCatWheel();
 
