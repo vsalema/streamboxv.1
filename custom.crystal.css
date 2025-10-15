@@ -270,3 +270,33 @@ body.light #nowBar {
   min-width: 38px !important;
   text-align: center !important;
 }
+
+/* Menu pistes audio (nowBar) */
+#audioBtn { min-width: 42px; }
+#audioMenu {
+  position: absolute;
+  right: 0;
+  bottom: 42px;
+  background: rgba(15,18,26,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 180px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  z-index: 2000;
+}
+#audioMenu .am-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #fff;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#audioMenu .am-item:hover { background: rgba(255,255,255,.12); }
+#audioMenu .am-item.sel { background: rgba(56,189,248,.25); }
+#audioMenu .am-item .am-lang { opacity: .7; font-size: .85em; }
+.am-empty { color:#cbd5e1; padding: 8px 10px; }
