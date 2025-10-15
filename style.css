@@ -1,262 +1,1260 @@
-:root {
-  --bg: #0b0b0b;
-  --bg-alt: #111;
-  --text: #eee;
-  --border: #222;
-  --accent: #3b82f6;
-}
-body.light {
-  --bg: #fafafa;
-  --bg-alt: #fff;
-  --text: #111;
-  --border: #ccc;
-  --accent: #2563eb;
-}
-* { box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-header {
-  background: var(--bg-alt);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.logo {
-  display: flex;
-  align-items: center;
-}
-.header-logo {
-  width: 60px;
-  height: auto;
-  vertical-align: middle;
-  filter: drop-shadow(0 0 6px var(--accent));
-  transition: filter 0.3s;
-}
-.logo.playing .header-logo {
-  filter: drop-shadow(0 0 14px var(--accent));
-}
-.fileLabel {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--bg); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer;
-}
-.fileLabel input { display:none; }
+// ============= IPTV Player – RESCUE SCRIPT (baseline propre) =============
+// Ce fichier remplace intégralement script.js pour déblocage rapide.
+// Fonctions: coller URL, importer M3U, lister chaînes (logos, groupes), jouer HLS/MP4/MP3/MPD/YouTube.
+// ========================================================================
+// état par défaut : son actif
 
-.controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-input, select {
-  flex: 1;
-  min-width: 180px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-}
-button {
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  background: var(--accent);
-  color: white;
-  font-weight: 600;
-}
-button:hover { opacity: 0.9; }
 
-main {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 360px 1fr;
-  overflow: hidden;
-}
-aside {
-  background: var(--bg-alt);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-}
-.tabs {
-  display: flex;
-}
-.tabs button {
-  flex: 1;
-  border-radius: 0;
-  border: none;
-  background: var(--bg);
-  color: var(--text);
-  border-bottom: 2px solid transparent;
-}
-.tabs button.active {
-  border-bottom: 2px solid var(--accent);
-  font-weight: bold;
-}
-#catBar { display:flex; gap:6px; padding:6px 8px; flex-wrap:wrap; }
-#catBar .cat { background: var(--bg); color: var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:999px; cursor:pointer; }
-#catBar .cat.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+// --- Sécurité & logs ---
+window.addEventListener('error', e => console.error('[IPTV:error]', e.message, e.filename, e.lineno));
+window.addEventListener('unhandledrejection', e => console.error('[IPTV:promise]', e.reason));
 
-/* Search input compact */
-aside input#searchInput {
-  flex: 0 0 auto;
-  width: calc(100% - 16px);
-  margin: 8px;
+// --- Elements ---
+const input = document.getElementById('urlInput');
+const loadBtn = document.getElementById('loadBtn');
+const fileInput = document.getElementById('fileInput');
+const themeBtn = document.getElementById('themeToggle');
+const listDiv = document.getElementById('list');
+const video = document.getElementById('videoPlayer');
+const audio = document.getElementById('audioPlayer');
+const iframe = document.getElementById('ytPlayer');
+const noSource = document.getElementById('noSource');
+const playerSection = document.getElementById('playerSection');
+const searchInput = document.getElementById('searchInput');
+const catBar = document.getElementById('catBar');
+
+const tabs = {
+  channels: document.getElementById('tab-channels'),
+  favorites: document.getElementById('tab-favorites'),
+  history: document.getElementById('tab-history'),
+  playlists: document.getElementById('tab-playlists'),
+};
+
+const nowTitle = document.getElementById('nowTitle');
+const copyBtn  = document.getElementById('copyBtn');
+const openBtn  = document.getElementById('openBtn');
+
+// --- Storage helpers ---
+const LS = { fav:'iptv.favorites', hist:'iptv.history', last:'iptv.lastUrl', theme:'theme', playlists:'iptv.playlists' };
+const loadLS = (k, d) => { try { const v = localStorage.getItem(k); return v?JSON.parse(v):d; } catch { return d; } };
+const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+// --- State ---
+let channels = [];              // {name,url,group,logo}
+let favorites = loadLS(LS.fav, []);
+let historyList = loadLS(LS.hist, []);
+let categories = ['ALL'];
+let categoryFilter = 'ALL';
+let channelFilter = '';
+let mode = 'channels';
+let defaultPlaylists = [];      // chargé à la demande
+let userPlaylists = loadLS(LS.playlists, []);
+
+// --- Utils ---
+function escapeHtml(s){
+  const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
+  return (s ?? '').toString().replace(/[&<>"']/g, m => map[m]);
+}
+function classify(url){
+  const u = (url||'').toLowerCase();
+  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
+  if (u.endsWith('.m3u') || u.includes('.m3u8')) return 'hls';
+  if (u.endsWith('.mp4')) return 'mp4';
+  if (u.endsWith('.mp3')) return 'mp3';
+  if (u.endsWith('.mpd')) return 'dash';
+  return 'unknown';
+}
+const extractYT = (url) => { const m = url.match(/[?&]v=([^&]+)/); return m?m[1]:url.split('/').pop(); };
+const PLACEHOLDER_LOGO = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="10" fill="#111"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="34">📺</text></svg>`);
+
+// --- UI helpers ---
+function setPlaying(on){
+  try {
+    playerSection && playerSection.classList.toggle('playing', !!on);
+    if (noSource) noSource.style.display = on ? 'none' : 'flex';
+  } catch {}
+}
+function resetPlayers(){
+  try { video.pause(); } catch {}
+  try { audio.pause(); } catch {}
+  video.style.display = 'none';
+  audio.style.display = 'none';
+  iframe.style.display = 'none';
+  setPlaying(false);
+}
+function updateNowBar(nameOrUrl, url){
+  nowTitle && (nowTitle.textContent = nameOrUrl || url || 'Flux');
+  if (openBtn) openBtn.href = url || '#';
+  if (copyBtn) copyBtn.onclick = async () => { try { await navigator.clipboard.writeText(url); } catch {} };
 }
 
-#list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px;
-}
-.item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-.item:hover, .item.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.item .left {
-  display:flex; align-items:center; gap:10px;
-}
-.logo-sm {
-  width: 28px; height: 28px; border-radius: 6px; background: #222; display:flex; align-items:center; justify-content:center;
-  overflow:hidden;
-}
-.logo-sm img { width:100%; height:100%; object-fit: contain; }
-.logo-sm .ph { font-size: 16px; opacity: .8; }
-
-.item span.star {
-  cursor: pointer;
-  font-size: 1.1em;
-}
-
-/* === PLAYER — rendu unifié partout (Chaînes, Favoris, etc.) === */
-#playerSection {
-  position: relative;
-  display: block;
-  background: #000;
-  overflow: hidden;                 /* coupe tout débordement */
-}
-
-/* Tous les médias occupent EXACTEMENT le cadre du player */
-#playerSection > video,
-#playerSection > iframe,
-#playerSection > audio {
-  position: absolute;
-  inset: 0;                         /* top/right/bottom/left: 0 */
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  display: none;                    /* le JS met "block" sur le média actif */
-  background: #000;
-  object-fit: contain;              /* pas de crop */
-  border: 0;
-  box-sizing: border-box;
-  z-index: 1;
-}
-
-/* Message d’attente : hors layout et caché dès que ça lit */
-#noSource {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  z-index: 0;                       /* sous le média */
-  pointer-events: none;
-  opacity: .85;
-}
-#playerSection.playing #noSource { display: none; }
-
-/* === NOW BAR — en bas de page, ne masque jamais les contrôles === */
-footer {
-  height: 64px;                     /* réserve l’espace bas */
-  font-size: 0;
-  border-top: none;
-}
-#nowBar {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  z-index: 1000;
-  pointer-events: none;             /* laisse passer les clics vers le player */
-}
-#nowBar .nowbar-actions > *,
-#nowBar a,
-#nowBar button { pointer-events: auto; }
-
-/* Layout global: évite les décalages et chevauchements */
-main {
-  overflow: hidden;                 /* évite glitch de grille */
-  padding-bottom: 80px;             /* espace pour la nowBar */
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  main { grid-template-columns: 1fr; }
-  aside { height: 260px; }
-}
-/* Hauteur pilotée par variables (qu’on mettra à jour en JS) */
-:root {
-  --header-h: 64px;        /* valeur par défaut, corrigée en JS */
-  --bottom-reserve: 80px;  /* espace pour la nowBar */
-}
-
-#playerSection {
-  /* Hauteur = fenêtre – header – réserve bas (nowBar) */
-  height: calc(100svh - var(--header-h) - var(--bottom-reserve));
-  min-height: 240px;       /* sécurité */
-}
-
-/* S’assure que la colonne player peut rétrécir */
-main, main > * { min-height: 0; }
-
-(() => {
-  const bar = document.getElementById('catBar');
-  if (!bar) return;
-  bar.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      bar.scrollLeft += e.deltaY;
-      e.preventDefault();
+// --- Players ---
+function playHls(url){
+  video.style.display = 'block';
+  setPlaying(true);
+  try {
+    if (window.Hls && window.Hls.isSupported()) {
+      const hls = new window.Hls();
+      hls.on(window.Hls.Events.ERROR, (evt, data) => {
+        console.warn('[HLS.js error]', data);
+        if (data?.fatal) { hls.destroy(); video.src = url; }
+      });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url; // Safari iOS lit HLS nativement
     }
-  }, { passive:false });
+  } catch (e) {
+    console.error('[playHls]', e);
+    video.src = url;
+  }
+  updateNowBar(undefined, url);
+}
+function playDash(url){
+  video.style.display = 'block';
+  setPlaying(true);
+  const DASH = window.dashjs?.MediaPlayer;
+  if (DASH && typeof DASH.create === 'function') {
+    const p = DASH.create();
+    p.initialize(video, url, true);
+  } else {
+    video.src = url; // fallback
+  }
+  updateNowBar(undefined, url);
+}
+function playVideo(url){
+  video.style.display = 'block';
+  setPlaying(true);
+  video.src = url;
+  updateNowBar(undefined, url);
+}
+function playAudio(url){
+  audio.style.display = 'block';
+  setPlaying(true);
+  audio.src = url;
+  updateNowBar(undefined, url);
+}
+function playYouTube(url){
+  iframe.style.display = 'block';
+  setPlaying(true);
+  iframe.src = `https://www.youtube.com/embed/${extractYT(url)}?autoplay=1`;
+  updateNowBar(undefined, url);
+}
+function playByType(url){
+  const t = classify(url);
+  if (t==='youtube') return playYouTube(url);
+  if (t==='mp4') return playVideo(url);
+  if (t==='mp3') return playAudio(url);
+  if (t==='dash') return playDash(url);
+  return playHls(url);
+}
+
+// --- M3U ---
+function parseM3U(text){
+  text = String(text||'').replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).map(l => l.trim());
+  let name='', group='Autres', logo='';
+  channels = []; categories = ['ALL'];
+
+  for (let i=0; i<lines.length; i++){
+    const l = lines[i];
+    if (!l) continue;
+    if (l.startsWith('#EXTINF')){
+      const nm = l.match(/,(.*)$/); name = nm ? nm[1].trim() : 'Chaîne';
+      const gm = l.match(/group-title="([^"]+)"/i); group = gm?gm[1]:'Autres';
+      const lg = l.match(/tvg-logo="([^"]+)"/i) || l.match(/logo="([^"]+)"/i); logo = lg?lg[1]:'';
+      if (!categories.includes(group)) categories.push(group);
+    } else if (/^https?:\/\//i.test(l)){
+      channels.push({ name, url:l, group, logo: logo || PLACEHOLDER_LOGO });
+    }
+  }
+  categoryFilter = 'ALL';
+  switchTab('channels');
+}
+
+// --- Rendu ---
+function renderCategories(){
+  if (!catBar) return;
+  if (categories.length <= 1) { catBar.innerHTML = ''; return; }
+  catBar.innerHTML = categories.map(c => `<button class="cat ${c===categoryFilter?'active':''}" data-cat="${c}">${escapeHtml(c)}</button>`).join('');
+  catBar.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = () => { categoryFilter = btn.dataset.cat; renderList(); };
+  });
+}
+function renderLogo(logo){
+  if (!logo) return `<span class="ph">📺</span>`;
+  const safe = (logo.startsWith('http') || logo.startsWith('data:')) ? logo : PLACEHOLDER_LOGO;
+  return `<img src="${safe}" alt="logo" onerror="this.src='${PLACEHOLDER_LOGO}'">`;
+}
+function isFav(url){ return favorites.some(f => f.url === url); }
+function toggleFavorite(it){
+  if (isFav(it.url)) favorites = favorites.filter(f => f.url !== it.url);
+  else favorites.unshift({ name: it.name || it.url, url: it.url, logo: it.logo || '' });
+  saveLS(LS.fav, favorites);
+}
+function addHistory(url){
+  historyList = [url, ...historyList.filter(u=>u!==url)].slice(0,30);
+  saveLS(LS.hist, historyList);
+}
+function renderPlaylists(){
+  listDiv.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.style.padding = '8px';
+
+  const bar = document.createElement('div'); bar.style.display='flex'; bar.style.gap='8px'; bar.style.margin='6px';
+  bar.innerHTML = `<button id="plReload">Charger playlists.json</button>`;
+  wrap.appendChild(bar);
+  bar.querySelector('#plReload').onclick = () => ensureDefaultPlaylistsLoaded(true);
+
+  const h1 = document.createElement('h3'); h1.textContent='Listes par défaut'; h1.style.margin='6px 0'; h1.style.opacity='.8';
+  wrap.appendChild(h1);
+
+  const def = document.createElement('div');
+  (defaultPlaylists.length ? defaultPlaylists : [{name:'(aucune – clique “Charger playlists.json”)', url:''}]).forEach(p=>{
+    const it = document.createElement('div'); it.className='item';
+    it.innerHTML = `<div class="left"><span class="logo-sm"><span class="ph">📚</span></span><div class="meta"><div class="name">${escapeHtml(p.name||p.url)}</div></div></div>`;
+    if (p.url) {
+      it.onclick = async () => {
+        try{
+          const res = await fetch(p.url);
+          if (!res.ok) throw new Error('HTTP '+res.status);
+          const txt = await res.text();
+          parseM3U(txt);
+        }catch(e){ console.error('[playlist]', e); }
+      };
+    }
+    def.appendChild(it);
+  });
+  wrap.appendChild(def);
+
+  const h2 = document.createElement('h3'); h2.textContent='Mes listes'; h2.style.margin='10px 0 6px'; h2.style.opacity='.8';
+  wrap.appendChild(h2);
+
+  const mine = document.createElement('div');
+  userPlaylists.forEach((p, idx)=>{
+    const it = document.createElement('div'); it.className='item';
+    it.innerHTML = `
+      <div class="left">
+        <span class="logo-sm"><span class="ph">🗂️</span></span>
+        <div class="meta"><div class="name">${escapeHtml(p.name||p.url)}</div></div>
+      </div>
+      <div><button class="btn-small" data-idx="${idx}" data-act="del">🗑️</button></div>`;
+    it.onclick = async (e) => {
+      if (e.target.dataset.act === 'del') return;
+      try{
+        const res = await fetch(p.url);
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const txt = await res.text();
+        parseM3U(txt);
+      }catch(e){ console.error('[playlist:mine]', e); }
+    };
+    it.querySelector('[data-act="del"]').onclick = (e)=>{
+      e.stopPropagation();
+      userPlaylists.splice(idx,1);
+      saveLS(LS.playlists, userPlaylists);
+      renderPlaylists();
+    };
+    mine.appendChild(it);
+  });
+  wrap.appendChild(mine);
+
+  const form = document.createElement('div'); form.style.marginTop='10px';
+  form.innerHTML = `
+    <input id="plName" placeholder="Nom de la liste" style="margin-bottom:6px;">
+    <input id="plUrl" placeholder="URL de la liste M3U">
+    <button id="plAdd">Ajouter</button>`;
+  wrap.appendChild(form);
+  form.querySelector('#plAdd').onclick = () => {
+    const name = form.querySelector('#plName').value.trim();
+    const url  = form.querySelector('#plUrl').value.trim();
+    if (!url) return;
+    userPlaylists.unshift({ name: name || url, url });
+    saveLS(LS.playlists, userPlaylists);
+    renderPlaylists();
+  };
+
+  listDiv.appendChild(wrap);
+}
+function renderList(){
+  listDiv.innerHTML = '';
+  if (mode==='channels') renderCategories(); else catBar.innerHTML = '';
+// Barre d'action spécifique à l'historique
+if (mode === 'history') {
+  const bar = document.createElement('div');
+  bar.className = 'history-toolbar';
+  bar.innerHTML = `
+    <button id="btnClearHistory" class="btn-danger" title="Effacer tout l'historique">🧹 Effacer l'historique</button>
+  `;
+  bar.querySelector('#btnClearHistory').onclick = () => {
+    if (confirm('Effacer tout l’historique ?')) clearHistory();
+  };
+  listDiv.appendChild(bar);
+}
+
+  let data = [];
+  if (mode==='channels') data = channels;
+  if (mode==='favorites') data = favorites;
+  if (mode==='history') data = historyList.map(u => ({url:u, name:u}));
+  if (mode==='playlists') { renderPlaylists(); return; }
+
+  if (mode==='channels' && categoryFilter!=='ALL') data = data.filter(x=>x.group===categoryFilter);
+  if (channelFilter) data = data.filter(x => (x.name||x.url).toLowerCase().includes(channelFilter.toLowerCase()));
+
+  data.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="left">
+        <span class="logo-sm">${renderLogo(item.logo)}</span>
+        <div class="meta">
+          <div class="name">${escapeHtml(item.name||item.url)}</div>
+          ${ item.group ? `<div class="sub" style="font-size:.8em;opacity:.7">${escapeHtml(item.group)}</div>` : '' }
+        </div>
+      </div>
+      <span class="star">${isFav(item.url) ? '★' : '☆'}</span>
+    `;
+    div.onclick = () => {
+      try { resetPlayers(); } catch {}
+      if (noSource) noSource.style.display = 'none';
+      playByType(item.url);
+      updateNowBar(item.name || item.url, item.url);
+      try {
+        if (video && video.style.display === 'block') {
+          video.muted = false;            // anti-autoplay
+          const p = video.play();
+          if (p && p.catch) p.catch(()=>{});
+        }
+      } catch {}
+      addHistory(item.url);
+    };
+    div.querySelector('.star').onclick = (e)=>{
+      e.stopPropagation();
+      toggleFavorite(item);
+      renderList();
+    };
+    listDiv.appendChild(div);
+  });
+
+  if (!data.length) listDiv.innerHTML = '<p style="opacity:.6;padding:10px;">Aucune donnée.</p>';
+}
+
+// --- Tabs ---
+function switchTab(t){
+  mode = t;
+  Object.values(tabs).forEach(b => b && b.classList.remove('active'));
+  tabs[t] && tabs[t].classList.add('active');
+  renderList();
+  if (t==='playlists') ensureDefaultPlaylistsLoaded();
+}
+tabs.channels && (tabs.channels.onclick = ()=>switchTab('channels'));
+tabs.favorites && (tabs.favorites.onclick = ()=>switchTab('favorites'));
+tabs.history && (tabs.history.onclick   = ()=>switchTab('history'));
+tabs.playlists && (tabs.playlists.onclick=()=>switchTab('playlists'));
+
+// --- Controls ---
+loadBtn && (loadBtn.onclick = ()=>{
+  const v = (input.value||'').trim();
+  if (!v) return;
+  resetPlayers();
+  if (noSource) noSource.style.display = 'none';
+  playByType(v);
+  updateNowBar(v, v);
+  addHistory(v);
+});
+fileInput && (fileInput.onchange = async (e)=>{
+  const f = e.target.files?.[0]; if (!f) return;
+  const txt = await f.text();
+  parseM3U(txt);
+});
+searchInput && (searchInput.oninput = (e) => {
+  channelFilter = e.target.value || '';
+  renderList();
+});
+
+// --- Playlists par défaut (à la demande) ---
+async function ensureDefaultPlaylistsLoaded(force){
+  if (defaultPlaylists.length && !force) return;
+  try{
+    const res = await fetch('playlists.json', { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    defaultPlaylists = (data.playlists||[]).filter(x => x.url);
+  }catch(e){
+    console.warn('[playlists.json]', e);
+    defaultPlaylists = [];
+  }finally{
+    if (mode==='playlists') renderPlaylists();
+  }
+}
+
+// --- Init ---
+(function init(){
+  // thème
+  const t = loadLS(LS.theme, 'dark');
+  if (t==='light') document.body.classList.add('light');
+
+  // dernière URL (pas d’autoplay, juste remplir le champ)
+  const last = loadLS(LS.last, '');
+  if (last && input) input.value = last;
+
+  // rendu initial (aucun fetch ici)
+  renderList();
+
+  // fermer le splash quoi qu'il arrive (2s)
+  const splash = document.getElementById('splash');
+  setTimeout(()=>{ if (splash){ splash.classList.add('hidden'); setTimeout(()=>splash.remove(),600);} }, 2000);
+
+  console.log('[IPTV] RESCUE script chargé');
 })();
-function enableCatWheel(){
-  const bar = document.getElementById('catBar');
-  if (!bar || bar.__wheelBound) return;
-  bar.__wheelBound = true;
-  bar.addEventListener('wheel', (e) => {
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      bar.scrollLeft += e.deltaY;
-      e.preventDefault();
-    }
-  }, { passive: false });
+// --- Ajuste la hauteur disponible pour le player (Chaînes & co.)
+function updatePlayerLayout() {
+  try {
+    const root = document.documentElement;
+    const header = document.querySelector('header');
+    const headerH = header ? header.offsetHeight : 0;
+    root.style.setProperty('--header-h', headerH + 'px');
+  } catch (e) { console.warn('[layout]', e); }
 }
 
-// après ta fonction qui (re)génère les catégories :
-renderCategories();  // (exemple)
-enableCatWheel();
+// Appels initiaux + écoute redimensionnement/orientation
+window.addEventListener('resize', updatePlayerLayout);
+window.addEventListener('orientationchange', updatePlayerLayout);
+document.addEventListener('DOMContentLoaded', updatePlayerLayout);
+// petit tick pour after-paint (polices chargées etc.)
+setTimeout(updatePlayerLayout, 50);
+
+// --- Ferme le splash dans tous les cas ---
+(function killSplash(){
+  const s = document.getElementById('splash');
+  if (!s) return;
+  const hide = () => { s.classList.add('hidden'); setTimeout(()=>s.remove?.(), 600); };
+  setTimeout(hide, 2200);                           // auto-hide
+  document.addEventListener('DOMContentLoaded', hide, { once:true });
+  window.addEventListener('load', hide, { once:true });
+  s.addEventListener('click', hide, { once:true });  // clic = fermer
+})();
+
+// Petit toast (optionnel) pour confirmer l'action
+function showToast(msg){
+  try {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1600);
+  } catch {}
+}
+
+// Effacer l'historique (mémoire + écran)
+function clearHistory(){
+  try {
+    historyList = [];
+    saveLS(LS.hist, historyList);   // LS.hist = 'iptv.history'
+    if (mode === 'history') renderList();
+    showToast('Historique effacé ✅');
+  } catch(e){
+    console.error('[clearHistory]', e);
+  }
+}
+
+// === Thème clair/sombre — init SAFE (anti-conflit) =======================
+(() => {
+  // Empêche une double initialisation si le code est chargé 2x
+  if (window.__IPTV_THEME_INIT__) return;
+  window.__IPTV_THEME_INIT__ = true;
+
+  const LSKEY = 'theme';
+  const btn = document.getElementById('themeToggle');
+
+  const apply = (t) => {
+    const isLight = t === 'light';
+    document.body.classList.toggle('light', isLight);
+    try { localStorage.setItem(LSKEY, isLight ? 'light' : 'dark'); } catch {}
+    if (btn) btn.textContent = isLight ? '☀️' : '🌙';
+  };
+
+  // init: préférence sauvegardée > préférence système > sombre
+  let t = 'dark';
+try {
+  const saved = localStorage.getItem(LSKEY);
+  if (saved === 'light' || saved === 'dark') t = saved;  // sinon, on garde 'dark'
+} catch {}
+apply(t);
+
+  // handler unique (écrase les anciens avec onclick)
+  if (btn) {
+    btn.onclick = () => apply(document.body.classList.contains('light') ? 'dark' : 'light');
+  }
+})();
+
+// === Bouton Plein écran (dans la nowBar) ==================================
+(() => {
+  const actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+
+  // Crée le bouton
+  const fsBtn = document.createElement('button');
+  fsBtn.id = 'fsBtn';
+  fsBtn.title = 'Plein écran';
+  fsBtn.textContent = '⤢'; // icône simple, compatible partout
+  fsBtn.style.minWidth = '38px'; // pour matcher la taille des autres
+  actions.appendChild(fsBtn);
+
+  // Utilitaires
+  const playerSection = document.getElementById('playerSection');
+  const video = document.getElementById('videoPlayer');
+  const audio = document.getElementById('audioPlayer');
+
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const setLabel = () => { fsBtn.textContent = isFullscreen() ? '⤡' : '⤢'; }; // ⤡ = quitter
+
+  const activeMedia = () => {
+    if (video && video.style.display === 'block') return video;
+    if (audio && audio.style.display === 'block') return audio;
+    return playerSection || document.documentElement;
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (isFullscreen()) {
+        await (document.exitFullscreen?.() || document.webkitExitFullscreen?.());
+      } else {
+        const target = activeMedia();
+        // iOS Safari plein écran natif de la vidéo si possible
+        if (target === video && video.webkitSupportsFullscreen && !document.pictureInPictureElement) {
+          video.webkitEnterFullscreen(); // bascule plein écran iOS
+        } else {
+          await (target.requestFullscreen?.() || target.webkitRequestFullscreen?.());
+        }
+      }
+    } catch (e) { console.warn('[fullscreen]', e); }
+    setLabel();
+  };
+
+  fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(); });
+  document.addEventListener('fullscreenchange', setLabel);
+  document.addEventListener('webkitfullscreenchange', setLabel);
+  setLabel();
+})();
+
+/* ===== Audio Tracks SAFE v3 — coller tout en bas, remplace les versions précédentes ===== */
+
+/* Globals si absents */
+if (typeof window.currentHls === 'undefined') window.currentHls = null;
+if (typeof window.currentDash === 'undefined') window.currentDash = null;
+
+/* 0) Sécurité : étend resetPlayers pour détruire HLS/DASH avant le reset existant */
+if (typeof window.__orig_resetPlayers__ === 'undefined' && typeof resetPlayers === 'function') {
+  window.__orig_resetPlayers__ = resetPlayers;
+  resetPlayers = function(){
+    try { if (window.currentHls && window.currentHls.destroy) { window.currentHls.destroy(); } } catch(e){}
+    window.currentHls = null;
+    try { if (window.currentDash && window.currentDash.reset) { window.currentDash.reset(); } } catch(e){}
+    window.currentDash = null;
+    try { window.__orig_resetPlayers__.call(this); } catch(e){}
+  };
+}
+
+/* 1) Repatch playHls / playDash (robustes, sans syntaxe “moderne”) */
+function playHls(url){
+  try { video.style.display = 'block'; } catch(e){}
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
+
+  try {
+    if (window.Hls && window.Hls.isSupported && window.Hls.isSupported()) {
+      try { if (window.currentHls && window.currentHls.destroy) window.currentHls.destroy(); } catch(e){}
+      var hls = new window.Hls();
+      window.currentHls = hls;
+
+      try {
+        hls.on(window.Hls.Events.ERROR, function(evt, data){
+          if (data && data.fatal) {
+            try { hls.destroy(); } catch(_){}
+            window.currentHls = null;
+            video.src = url;
+          }
+        });
+        hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ try { renderAudioMenu(); } catch(_){ } });
+        hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, function(){ try { highlightCurrentAudio(); } catch(_){ } });
+      } catch(_){}
+
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url; // Safari natif
+      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(_){ } }, { once:true });
+    }
+  } catch (e) {
+    try { console.error('[playHls]', e); } catch(_){}
+    try { video.src = url; } catch(_){}
+  }
+
+  try { updateNowBar(undefined, url); } catch(_){}
+}
+
+function playDash(url){
+  try { video.style.display = 'block'; } catch(e){}
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
+
+  try {
+    var DASH = (window.dashjs && window.dashjs.MediaPlayer) ? window.dashjs.MediaPlayer : null;
+    if (DASH && typeof DASH.create === 'function') {
+      try { if (window.currentDash && window.currentDash.reset) window.currentDash.reset(); } catch(_){}
+      var p = DASH.create();
+      window.currentDash = p;
+      p.initialize(video, url, true);
+      try {
+        p.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, function(){ try { renderAudioMenu(); } catch(_){ } });
+        p.on(window.dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, function(){ try { highlightCurrentAudio(); } catch(_){ } });
+      } catch(_){}
+    } else {
+      video.src = url; // fallback
+      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(_){ } }, { once:true });
+    }
+  } catch (e) {
+    try { console.error('[playDash]', e); } catch(_){}
+    try { video.src = url; } catch(_){}
+  }
+
+  try { updateNowBar(undefined, url); } catch(_){}
+}
+
+/* 2) Helpers: lister/sélectionner pistes (HLS/DASH/natif) */
+function listAudioTracks(){
+  // HLS.js
+  try {
+    if (window.currentHls && window.currentHls.audioTracks) {
+      var idx = (typeof window.currentHls.audioTrack === 'number') ? window.currentHls.audioTrack : -1;
+      var a = [];
+      for (var i=0; i<window.currentHls.audioTracks.length; i++){
+        var t = window.currentHls.audioTracks[i] || {};
+        a.push({
+          id: i,
+          label: t.name || t.lang || ('Piste ' + (i+1)),
+          lang: t.lang || '',
+          selected: i === idx,
+          type: 'hls'
+        });
+      }
+      return a;
+    }
+  } catch(_){}
+
+  // dash.js
+  try {
+    if (window.currentDash && typeof window.currentDash.getTracksFor === 'function') {
+      var tracks = window.currentDash.getTracksFor('audio') || [];
+      var cur = window.currentDash.getCurrentTrack('audio');
+      var out = [];
+      for (var j=0; j<tracks.length; j++){
+        var d = tracks[j] || {};
+        var lab = d.lang || (d.labels && d.labels[0]) || d.role || 'Audio';
+        var sel = !!(cur && (cur.id === d.id));
+        out.push({ id: d, label: lab, lang: d.lang || '', selected: sel, type: 'dash' });
+      }
+      return out;
+    }
+  } catch(_){}
+
+  // Natif (rare)
+  try {
+    if (video && video.audioTracks && video.audioTracks.length){
+      var nat = [];
+      for (var k=0; k<video.audioTracks.length; k++){
+        var nt = video.audioTracks[k];
+        nat.push({ id: k, label: nt.label || nt.language || ('Piste ' + (k+1)), lang: nt.language || '', selected: !!nt.enabled, type: 'native' });
+      }
+      return nat;
+    }
+  } catch(_){}
+
+  return [];
+}
+
+function selectAudioTrack(track){
+  if (!track) return;
+  try {
+    if (track.type === 'hls' && window.currentHls) {
+      window.currentHls.audioTrack = track.id;
+    } else if (track.type === 'dash' && window.currentDash) {
+      window.currentDash.setCurrentTrack(track.id);
+    } else if (track.type === 'native' && video && video.audioTracks) {
+      for (var i=0; i<video.audioTracks.length; i++){
+        video.audioTracks[i].enabled = (i === track.id);
+      }
+    }
+  } catch(e){}
+  try { highlightCurrentAudio(); } catch(_){}
+}
+
+/* 3) UI nowBar: bouton 🎧 + menu (sans templates/backticks) */
+(function attachAudioBtn(){
+  var actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+  if (document.getElementById('audioBtn')) return;
+
+  var wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+
+  var btn = document.createElement('button');
+  btn.id = 'audioBtn';
+  btn.title = 'Piste audio';
+  btn.textContent = '🎧 Audio';
+  wrap.appendChild(btn);
+
+  var menu = document.createElement('div');
+  menu.id = 'audioMenu';
+  menu.style.display = 'none';
+  wrap.appendChild(menu);
+
+  actions.appendChild(wrap);
+
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
+    if (menu.style.display === 'block') renderAudioMenu();
+  });
+
+  document.addEventListener('click', function(e){
+    if (!wrap.contains(e.target)) menu.style.display = 'none';
+  });
+})();
+
+function renderAudioMenu(){
+  var menu = document.getElementById('audioMenu');
+  if (!menu) return;
+
+  var tracks = listAudioTracks();
+  if (!tracks.length) {
+    menu.innerHTML = '<div class="am-empty">Aucune piste détectée</div>';
+    return;
+  }
+
+  var html = [];
+  for (var i=0; i<tracks.length; i++){
+    var t = tracks[i];
+    var cls = t.selected ? 'am-item sel' : 'am-item';
+    var langHtml = t.lang ? (' <span class="am-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
+    html.push('<button class="' + cls + '" data-i="' + i + '">' + escapeHtml(t.label) + langHtml + '</button>');
+  }
+  menu.innerHTML = html.join('');
+
+  var items = menu.querySelectorAll('.am-item');
+  for (var j=0; j<items.length; j++){
+    (function(idx){
+      items[idx].onclick = function(ev){
+        ev.stopPropagation();
+        var chosen = tracks[idx];
+        selectAudioTrack(chosen);
+        menu.style.display = 'none';
+      };
+    })(j);
+  }
+}
+
+function highlightCurrentAudio(){
+  var menu = document.getElementById('audioMenu');
+  if (!menu) return;
+  var tracks = listAudioTracks();
+  var items = menu.querySelectorAll('.am-item');
+  for (var i=0; i<items.length; i++){
+    var sel = !!(tracks[i] && tracks[i].selected);
+    if (sel) items[i].classList.add('sel'); else items[i].classList.remove('sel');
+  }
+}
+/* ===== /Audio Tracks SAFE v3 ===== */
+
+/* ===== Subs + Audio Memory SAFE v1 — coller tout en bas ===== */
+
+/* Globals (si absents) */
+if (typeof window.currentHls === 'undefined') window.currentHls = null;
+if (typeof window.currentDash === 'undefined') window.currentDash = null;
+
+/* === Mémoire des préférences par URL ===================================== */
+var PREFS_LS_KEY = 'iptv.prefs'; // { [url]: { audio:{type,id,lang,label}, subs:{type,id,lang,label,on} } }
+
+function loadPrefs() {
+  try {
+    var raw = localStorage.getItem(PREFS_LS_KEY);
+    if (!raw) return {};
+    var obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch(e) { return {}; }
+}
+function savePrefs(p) {
+  try { localStorage.setItem(PREFS_LS_KEY, JSON.stringify(p || {})); } catch(e){}
+}
+function getPrefs(url) {
+  var all = loadPrefs();
+  return all[url] || {};
+}
+function setAudioPref(url, track) {
+  if (!url || !track) return;
+  var all = loadPrefs();
+  all[url] = all[url] || {};
+  all[url].audio = { type: track.type || '', id: track.id || null, lang: track.lang || '', label: track.label || '' };
+  savePrefs(all);
+}
+function setSubsPref(url, trackOrOff) {
+  if (!url) return;
+  var all = loadPrefs();
+  all[url] = all[url] || {};
+  if (trackOrOff && trackOrOff.id !== undefined) {
+    all[url].subs = { type: trackOrOff.type || '', id: trackOrOff.id, lang: trackOrOff.lang || '', label: trackOrOff.label || '', on: true };
+  } else {
+    all[url].subs = { on: false }; // off
+  }
+  savePrefs(all);
+}
+
+/* util d’échappement HTML (si pas déjà présent) */
+if (typeof window.escapeHtml !== 'function') {
+  window.escapeHtml = function (s) {
+    try {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    } catch(e){ return ''; }
+  };
+}
+
+/* === AUDIO (mémoire) : écoute changements existants ====================== */
+/* Rem: Audio SAFE v3 gère déjà listAudioTracks/selectAudioTrack.
+   On hooke juste la mémorisation au moment du switch. */
+function rememberCurrentAudio(url) {
+  try {
+    var tracks = (typeof listAudioTracks === 'function') ? listAudioTracks() : [];
+    for (var i=0;i<tracks.length;i++){
+      if (tracks[i].selected) { setAudioPref(url, tracks[i]); break; }
+    }
+  } catch(e){}
+}
+
+/* === SOUS-TITRES : liste / sélection (HLS, DASH, natif) ================== */
+function listSubtitleTracks(){
+  /* HLS.js */
+  try {
+    if (window.currentHls && window.currentHls.subtitleTracks) {
+      var idx = (typeof window.currentHls.subtitleTrack === 'number') ? window.currentHls.subtitleTrack : -1;
+      var arr = [];
+      for (var i=0;i<window.currentHls.subtitleTracks.length;i++){
+        var t = window.currentHls.subtitleTracks[i] || {};
+        arr.push({
+          id: i,
+          label: t.name || t.lang || ('Sous-titres ' + (i+1)),
+          lang: t.lang || '',
+          selected: i === idx,
+          type: 'hls'
+        });
+      }
+      return arr;
+    }
+  } catch(e){}
+
+  /* dash.js */
+  try {
+    if (window.currentDash && typeof window.currentDash.getTracksFor === 'function') {
+      var tracks = window.currentDash.getTracksFor('text') || [];
+      var cur = window.currentDash.getCurrentTrack && window.currentDash.getCurrentTrack('text');
+      var out = [];
+      for (var j=0;j<tracks.length;j++){
+        var d = tracks[j] || {};
+        var lab = d.lang || (d.labels && d.labels[0]) || d.role || 'Sous-titres';
+        var sel = !!(cur && (cur.id === d.id));
+        out.push({ id: d, label: lab, lang: d.lang || '', selected: sel, type: 'dash' });
+      }
+      return out;
+    }
+  } catch(e){}
+
+  /* Natif */
+  try {
+    if (video && video.textTracks && video.textTracks.length){
+      var arrN = [];
+      // mode: "disabled" | "hidden" | "showing"
+      for (var k=0;k<video.textTracks.length;k++){
+        var tt = video.textTracks[k];
+        var sel = tt.mode === 'showing';
+        arrN.push({
+          id: k,
+          label: tt.label || tt.language || ('Sous-titres ' + (k+1)),
+          lang: tt.language || '',
+          selected: sel,
+          type: 'native'
+        });
+      }
+      return arrN;
+    }
+  } catch(e){}
+
+  return [];
+}
+
+function selectSubtitleTrack(track){
+  /* OFF (désactiver) */
+  if (!track) {
+    try {
+      /* HLS: pas d’index “-1”, on masque les pistes natives si exposées */
+      if (window.currentHls) {
+        // Masquer via textTracks vidéo
+        if (video && video.textTracks) {
+          for (var i=0;i<video.textTracks.length;i++){ video.textTracks[i].mode = 'disabled'; }
+        }
+      }
+    } catch(e){}
+    try {
+      if (window.currentDash) {
+        // dash.js: désactiver = setTextTrack(null)
+        if (typeof window.currentDash.setTextTrack === 'function') {
+          window.currentDash.setTextTrack(null);
+        }
+      }
+    } catch(e){}
+    try {
+      if (video && video.textTracks) {
+        for (var i2=0;i2<video.textTracks.length;i2++){ video.textTracks[i2].mode = 'disabled'; }
+      }
+    } catch(e){}
+    return;
+  }
+
+  /* HLS.js */
+  if (track.type === 'hls' && window.currentHls) {
+    try { window.currentHls.subtitleTrack = track.id; } catch(e){}
+    // Affiche via native TextTracks si présents
+    try {
+      if (video && video.textTracks) {
+        for (var i3=0;i3<video.textTracks.length;i3++){
+          video.textTracks[i3].mode = (i3 === track.id) ? 'showing' : 'disabled';
+        }
+      }
+    } catch(e){}
+    return;
+  }
+
+  /* dash.js */
+  if (track.type === 'dash' && window.currentDash) {
+    try { window.currentDash.setTextTrack(track.id); } catch(e){}
+    return;
+  }
+
+  /* Natif */
+  if (track.type === 'native' && video && video.textTracks) {
+    try {
+      for (var i4=0;i4<video.textTracks.length;i4++){
+        video.textTracks[i4].mode = (i4 === track.id) ? 'showing' : 'disabled';
+      }
+    } catch(e){}
+  }
+}
+
+/* Mémoriser le sous-titre courant */
+function rememberCurrentSubs(url){
+  try {
+    var trs = listSubtitleTracks();
+    var on = false, chosen = null;
+    for (var i=0;i<trs.length;i++){
+      if (trs[i].selected) { on = true; chosen = trs[i]; break; }
+    }
+    if (on) setSubsPref(url, chosen); else setSubsPref(url, null);
+  } catch(e){}
+}
+
+/* Appliquer préférences audio + subs au chargement d’un flux */
+function applySavedPrefs(url){
+  var p = getPrefs(url) || {};
+  /* Audio */
+  try {
+    if (p.audio && typeof selectAudioTrack === 'function') {
+      // on retrouve la piste par id/lang/label si l’id direct ne marche pas
+      var listA = listAudioTracks();
+      var targetA = null;
+      var i;
+      for (i=0;i<listA.length;i++){
+        var a = listA[i];
+        if (p.audio.id !== null && a.id === p.audio.id) { targetA = a; break; }
+      }
+      if (!targetA && p.audio && p.audio.lang) {
+        for (i=0;i<listA.length;i++){ if (listA[i].lang && listA[i].lang === p.audio.lang) { targetA = listA[i]; break; } }
+      }
+      if (!targetA && p.audio && p.audio.label) {
+        for (i=0;i<listA.length;i++){ if (listA[i].label === p.audio.label) { targetA = listA[i]; break; } }
+      }
+      if (targetA) selectAudioTrack(targetA);
+    }
+  } catch(e){}
+
+  /* Subs */
+  try {
+    if (p.subs && p.subs.on) {
+      var listS = listSubtitleTracks();
+      var targetS = null;
+      var j;
+      for (j=0;j<listS.length;j++){
+        var s = listS[j];
+        if (p.subs.id !== null && (s.id === p.subs.id)) { targetS = s; break; }
+      }
+      if (!targetS && p.subs && p.subs.lang) {
+        for (j=0;j<listS.length;j++){ if (listS[j].lang && listS[j].lang === p.subs.lang) { targetS = listS[j]; break; } }
+      }
+      if (!targetS && p.subs && p.subs.label) {
+        for (j=0;j<listS.length;j++){ if (listS[j].label === p.subs.label) { targetS = listS[j]; break; } }
+      }
+      if (targetS) selectSubtitleTrack(targetS);
+    } else {
+      // off
+      selectSubtitleTrack(null);
+    }
+  } catch(e){}
+}
+
+/* === UI nowBar : bouton CC + menu ======================================= */
+(function attachSubsBtn(){
+  var actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+  if (document.getElementById('subsBtn')) return;
+
+  var wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+
+  var btn = document.createElement('button');
+  btn.id = 'subsBtn';
+  btn.title = 'Sous-titres';
+  btn.textContent = 'CC';
+  wrap.appendChild(btn);
+
+  var menu = document.createElement('div');
+  menu.id = 'subsMenu';
+  menu.style.display = 'none';
+  wrap.appendChild(menu);
+
+  actions.appendChild(wrap);
+
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
+    if (menu.style.display === 'block') renderSubsMenu();
+  });
+
+  document.addEventListener('click', function(e){
+    if (!wrap.contains(e.target)) menu.style.display = 'none';
+  });
+})();
+
+/* Menu de sous-titres */
+function renderSubsMenu(){
+  var menu = document.getElementById('subsMenu');
+  if (!menu) return;
+
+  var list = listSubtitleTracks();
+  var html = [];
+
+  // Option OFF
+  var anySel = false;
+  for (var i=0;i<list.length;i++){ if (list[i].selected) { anySel = true; break; } }
+  html.push('<button class="sm-item ' + (anySel ? '' : 'sel') + '" data-i="-1">Désactivés</button>');
+
+  for (var j=0;j<list.length;j++){
+    var t = list[j];
+    var cls = 'sm-item' + (t.selected ? ' sel' : '');
+    var langHtml = t.lang ? (' <span class="sm-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
+    html.push('<button class="' + cls + '" data-i="' + j + '">' + escapeHtml(t.label) + langHtml + '</button>');
+  }
+
+  menu.innerHTML = html.join('');
+
+  var items = menu.querySelectorAll('.sm-item');
+  for (var k=0;k<items.length;k++){
+    (function(idx){
+      items[idx].onclick = function(ev){
+        ev.stopPropagation();
+        var url = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (idx === 0) { // OFF
+          selectSubtitleTrack(null);
+          if (url) setSubsPref(url, null);
+          menu.style.display = 'none';
+          highlightCurrentSubs();
+          return;
+        }
+        var tracks = listSubtitleTracks();
+        var chosen = tracks[idx - 1];
+        selectSubtitleTrack(chosen);
+        if (url) setSubsPref(url, chosen);
+        menu.style.display = 'none';
+        highlightCurrentSubs();
+      };
+    })(k);
+  }
+}
+
+/* Mise en évidence de la sélection courante */
+function highlightCurrentSubs(){
+  var menu = document.getElementById('subsMenu');
+  if (!menu) return;
+  var list = listSubtitleTracks();
+  var items = menu.querySelectorAll('.sm-item');
+  var anySel = false, i;
+  for (i=0;i<list.length;i++){ if (list[i].selected) { anySel = true; break; } }
+  // item 0 = OFF
+  if (items.length) {
+    if (!anySel) items[0].classList.add('sel'); else items[0].classList.remove('sel');
+  }
+  for (i=0;i<list.length;i++){
+    var it = items[i+1];
+    if (!it) continue;
+    if (list[i].selected) it.classList.add('sel'); else it.classList.remove('sel');
+  }
+}
+
+/* === Intégration : appliquer préférences quand un flux démarre ========== */
+/* Si tu as une fonction qui renvoie l’URL courante, expose-la :
+   window.getCurrentUrl = function(){ ... } ;  Sinon, applySavedPrefs(url) est
+   déjà appelée ci-dessous à partir de playHls/playDash via events. */
+
+/* Hook évènements pour mémoriser les choix utilisateur */
+(function hookTrackEvents(){
+  try {
+    if (window.currentHls && window.currentHls.on) {
+      window.currentHls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, function(){ 
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentAudio(u);
+      });
+      window.currentHls.on(window.Hls.Events.SUBTITLE_TRACK_SWITCH, function(){
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentSubs(u);
+      });
+    }
+  } catch(e){}
+  try {
+    if (window.currentDash && window.currentDash.on) {
+      window.currentDash.on(window.dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, function(){
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentAudio(u);
+      });
+      window.currentDash.on(window.dashjs.MediaPlayer.events.TEXT_TRACK_CHANGED, function(){
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentSubs(u);
+      });
+    }
+  } catch(e){}
+})();
+
+/* Appliquer prefs après parsing/manif */
+(function hookApplyPrefs(){
+  // On remplace légerement playHls/playDash déjà présents en leur ajoutant applySavedPrefs
+  var _playHls = (typeof playHls === 'function') ? playHls : null;
+  var _playDash = (typeof playDash === 'function') ? playDash : null;
+
+  if (_playHls) {
+    playHls = function(url){
+      _playHls(url);
+      // attendre un peu que les tracks existent
+      setTimeout(function(){ try { applySavedPrefs(url); renderSubsMenu(); } catch(e){} }, 600);
+    };
+  }
+  if (_playDash) {
+    playDash = function(url){
+      _playDash(url);
+      setTimeout(function(){ try { applySavedPrefs(url); renderSubsMenu(); } catch(e){} }, 600);
+    };
+  }
+})();
+
+// === NowBar FS fix — reconstruit 2 boutons distincts & handlers propres ===
+(function fixNowBarFS(){
+  var nowBar = document.getElementById('nowBar');
+  if (!nowBar) return;
+  var actions = nowBar.querySelector('.nowbar-actions') || nowBar;
+
+  // 1) Supprime tous les anciens boutons FS (doublons/handlers fantômes)
+  Array.prototype.slice.call(actions.querySelectorAll('#fsBtn, #fsPageBtn')).forEach(function(b){ b.remove(); });
+  Array.prototype.slice.call(actions.querySelectorAll('button, a')).forEach(function(b){
+    var t = (b.textContent || '').trim();
+    var ttl = (b.title || '').toLowerCase();
+    var looksFS = (t === '⤢' || t === '⤡' || t === '🗖' || t === '🗗' || ttl.indexOf('plein écran') !== -1);
+    if (looksFS && !b.id) b.remove();
+  });
+
+  // 2) Crée deux nouveaux boutons "neufs" (aucun listener hérité)
+  var fsVideoBtn = document.createElement('button');
+  fsVideoBtn.id = 'fsBtn';
+  fsVideoBtn.title = 'Plein écran (vidéo)';
+  fsVideoBtn.textContent = '⤢';
+  fsVideoBtn.style.minWidth = '38px';
+
+  var fsPageBtn = document.createElement('button');
+  fsPageBtn.id = 'fsPageBtn';
+  fsPageBtn.title = 'Plein écran (page)';
+  fsPageBtn.textContent = '🗖';
+  fsPageBtn.style.minWidth = '38px';
+
+  actions.appendChild(fsVideoBtn);
+  actions.appendChild(fsPageBtn);
+
+  // 3) Handlers distincts
+  var doc = document;
+  var docEl = document.documentElement;
+  var videoEl = document.getElementById('videoPlayer');
+  var playerSection = document.getElementById('playerSection');
+
+  function isFS(){ return !!(doc.fullscreenElement || doc.webkitFullscreenElement); }
+  function currentFSTarget(){ return doc.fullscreenElement || doc.webkitFullscreenElement || null; }
+
+  function setLabels(){
+    var tgt = currentFSTarget();
+    var videoFs = (tgt === videoEl || tgt === playerSection);
+    var pageFs  = (tgt === docEl || tgt === doc.body);
+
+    // Vidéo: ⤢ entrer / ⤡ quitter
+    fsVideoBtn.textContent = videoFs ? '⤡' : '⤢';
+    fsVideoBtn.title = videoFs ? 'Quitter plein écran (vidéo)' : 'Plein écran (vidéo)';
+
+    // Page: 🗖 entrer / 🗗 quitter
+    fsPageBtn.textContent = pageFs ? '🗗' : '🗖';
+    fsPageBtn.title = pageFs ? 'Quitter plein écran (page)' : 'Plein écran (page)';
+  }
+
+  function targetForVideoFS(){
+    // Si la <video> est visible, on la cible; sinon, le conteneur player
+    if (videoEl && videoEl.style && videoEl.style.display === 'block') return videoEl;
+    return playerSection || videoEl || docEl;
+  }
+
+  fsVideoBtn.onclick = function(e){
+    e.stopPropagation();
+    try {
+      // iOS Safari: plein écran natif de la vidéo si possible (n'affecte pas la page)
+      if (videoEl && typeof videoEl.webkitEnterFullscreen === 'function' && !isFS()) {
+        videoEl.webkitEnterFullscreen();
+        setLabels();
+        return;
+      }
+      if (isFS()) {
+        (doc.exitFullscreen ? doc.exitFullscreen() : doc.webkitExitFullscreen && doc.webkitExitFullscreen());
+      } else {
+        var tgt = targetForVideoFS();
+        if (tgt.requestFullscreen) tgt.requestFullscreen();
+        else if (tgt.webkitRequestFullscreen) tgt.webkitRequestFullscreen();
+      }
+    } catch(_) {}
+    setLabels();
+  };
+
+  fsPageBtn.onclick = function(e){
+    e.stopPropagation();
+    try {
+      if (isFS()) {
+        (doc.exitFullscreen ? doc.exitFullscreen() : doc.webkitExitFullscreen && doc.webkitExitFullscreen());
+      } else {
+        if (docEl.requestFullscreen) docEl.requestFullscreen();
+        else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+      }
+    } catch(_) {}
+    setLabels();
+  };
+
+  doc.addEventListener('fullscreenchange', setLabels);
+  doc.addEventListener('webkitfullscreenchange', setLabels);
+  setLabels();
+})();
 
