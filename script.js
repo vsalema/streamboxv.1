@@ -763,3 +763,401 @@ function highlightCurrentAudio(){
 }
 /* ===== /Audio Tracks SAFE v3 ===== */
 
+/* ===== Subs + Audio Memory SAFE v1 — coller tout en bas ===== */
+
+/* Globals (si absents) */
+if (typeof window.currentHls === 'undefined') window.currentHls = null;
+if (typeof window.currentDash === 'undefined') window.currentDash = null;
+
+/* === Mémoire des préférences par URL ===================================== */
+var PREFS_LS_KEY = 'iptv.prefs'; // { [url]: { audio:{type,id,lang,label}, subs:{type,id,lang,label,on} } }
+
+function loadPrefs() {
+  try {
+    var raw = localStorage.getItem(PREFS_LS_KEY);
+    if (!raw) return {};
+    var obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch(e) { return {}; }
+}
+function savePrefs(p) {
+  try { localStorage.setItem(PREFS_LS_KEY, JSON.stringify(p || {})); } catch(e){}
+}
+function getPrefs(url) {
+  var all = loadPrefs();
+  return all[url] || {};
+}
+function setAudioPref(url, track) {
+  if (!url || !track) return;
+  var all = loadPrefs();
+  all[url] = all[url] || {};
+  all[url].audio = { type: track.type || '', id: track.id || null, lang: track.lang || '', label: track.label || '' };
+  savePrefs(all);
+}
+function setSubsPref(url, trackOrOff) {
+  if (!url) return;
+  var all = loadPrefs();
+  all[url] = all[url] || {};
+  if (trackOrOff && trackOrOff.id !== undefined) {
+    all[url].subs = { type: trackOrOff.type || '', id: trackOrOff.id, lang: trackOrOff.lang || '', label: trackOrOff.label || '', on: true };
+  } else {
+    all[url].subs = { on: false }; // off
+  }
+  savePrefs(all);
+}
+
+/* util d’échappement HTML (si pas déjà présent) */
+if (typeof window.escapeHtml !== 'function') {
+  window.escapeHtml = function (s) {
+    try {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    } catch(e){ return ''; }
+  };
+}
+
+/* === AUDIO (mémoire) : écoute changements existants ====================== */
+/* Rem: Audio SAFE v3 gère déjà listAudioTracks/selectAudioTrack.
+   On hooke juste la mémorisation au moment du switch. */
+function rememberCurrentAudio(url) {
+  try {
+    var tracks = (typeof listAudioTracks === 'function') ? listAudioTracks() : [];
+    for (var i=0;i<tracks.length;i++){
+      if (tracks[i].selected) { setAudioPref(url, tracks[i]); break; }
+    }
+  } catch(e){}
+}
+
+/* === SOUS-TITRES : liste / sélection (HLS, DASH, natif) ================== */
+function listSubtitleTracks(){
+  /* HLS.js */
+  try {
+    if (window.currentHls && window.currentHls.subtitleTracks) {
+      var idx = (typeof window.currentHls.subtitleTrack === 'number') ? window.currentHls.subtitleTrack : -1;
+      var arr = [];
+      for (var i=0;i<window.currentHls.subtitleTracks.length;i++){
+        var t = window.currentHls.subtitleTracks[i] || {};
+        arr.push({
+          id: i,
+          label: t.name || t.lang || ('Sous-titres ' + (i+1)),
+          lang: t.lang || '',
+          selected: i === idx,
+          type: 'hls'
+        });
+      }
+      return arr;
+    }
+  } catch(e){}
+
+  /* dash.js */
+  try {
+    if (window.currentDash && typeof window.currentDash.getTracksFor === 'function') {
+      var tracks = window.currentDash.getTracksFor('text') || [];
+      var cur = window.currentDash.getCurrentTrack && window.currentDash.getCurrentTrack('text');
+      var out = [];
+      for (var j=0;j<tracks.length;j++){
+        var d = tracks[j] || {};
+        var lab = d.lang || (d.labels && d.labels[0]) || d.role || 'Sous-titres';
+        var sel = !!(cur && (cur.id === d.id));
+        out.push({ id: d, label: lab, lang: d.lang || '', selected: sel, type: 'dash' });
+      }
+      return out;
+    }
+  } catch(e){}
+
+  /* Natif */
+  try {
+    if (video && video.textTracks && video.textTracks.length){
+      var arrN = [];
+      // mode: "disabled" | "hidden" | "showing"
+      for (var k=0;k<video.textTracks.length;k++){
+        var tt = video.textTracks[k];
+        var sel = tt.mode === 'showing';
+        arrN.push({
+          id: k,
+          label: tt.label || tt.language || ('Sous-titres ' + (k+1)),
+          lang: tt.language || '',
+          selected: sel,
+          type: 'native'
+        });
+      }
+      return arrN;
+    }
+  } catch(e){}
+
+  return [];
+}
+
+function selectSubtitleTrack(track){
+  /* OFF (désactiver) */
+  if (!track) {
+    try {
+      /* HLS: pas d’index “-1”, on masque les pistes natives si exposées */
+      if (window.currentHls) {
+        // Masquer via textTracks vidéo
+        if (video && video.textTracks) {
+          for (var i=0;i<video.textTracks.length;i++){ video.textTracks[i].mode = 'disabled'; }
+        }
+      }
+    } catch(e){}
+    try {
+      if (window.currentDash) {
+        // dash.js: désactiver = setTextTrack(null)
+        if (typeof window.currentDash.setTextTrack === 'function') {
+          window.currentDash.setTextTrack(null);
+        }
+      }
+    } catch(e){}
+    try {
+      if (video && video.textTracks) {
+        for (var i2=0;i2<video.textTracks.length;i2++){ video.textTracks[i2].mode = 'disabled'; }
+      }
+    } catch(e){}
+    return;
+  }
+
+  /* HLS.js */
+  if (track.type === 'hls' && window.currentHls) {
+    try { window.currentHls.subtitleTrack = track.id; } catch(e){}
+    // Affiche via native TextTracks si présents
+    try {
+      if (video && video.textTracks) {
+        for (var i3=0;i3<video.textTracks.length;i3++){
+          video.textTracks[i3].mode = (i3 === track.id) ? 'showing' : 'disabled';
+        }
+      }
+    } catch(e){}
+    return;
+  }
+
+  /* dash.js */
+  if (track.type === 'dash' && window.currentDash) {
+    try { window.currentDash.setTextTrack(track.id); } catch(e){}
+    return;
+  }
+
+  /* Natif */
+  if (track.type === 'native' && video && video.textTracks) {
+    try {
+      for (var i4=0;i4<video.textTracks.length;i4++){
+        video.textTracks[i4].mode = (i4 === track.id) ? 'showing' : 'disabled';
+      }
+    } catch(e){}
+  }
+}
+
+/* Mémoriser le sous-titre courant */
+function rememberCurrentSubs(url){
+  try {
+    var trs = listSubtitleTracks();
+    var on = false, chosen = null;
+    for (var i=0;i<trs.length;i++){
+      if (trs[i].selected) { on = true; chosen = trs[i]; break; }
+    }
+    if (on) setSubsPref(url, chosen); else setSubsPref(url, null);
+  } catch(e){}
+}
+
+/* Appliquer préférences audio + subs au chargement d’un flux */
+function applySavedPrefs(url){
+  var p = getPrefs(url) || {};
+  /* Audio */
+  try {
+    if (p.audio && typeof selectAudioTrack === 'function') {
+      // on retrouve la piste par id/lang/label si l’id direct ne marche pas
+      var listA = listAudioTracks();
+      var targetA = null;
+      var i;
+      for (i=0;i<listA.length;i++){
+        var a = listA[i];
+        if (p.audio.id !== null && a.id === p.audio.id) { targetA = a; break; }
+      }
+      if (!targetA && p.audio && p.audio.lang) {
+        for (i=0;i<listA.length;i++){ if (listA[i].lang && listA[i].lang === p.audio.lang) { targetA = listA[i]; break; } }
+      }
+      if (!targetA && p.audio && p.audio.label) {
+        for (i=0;i<listA.length;i++){ if (listA[i].label === p.audio.label) { targetA = listA[i]; break; } }
+      }
+      if (targetA) selectAudioTrack(targetA);
+    }
+  } catch(e){}
+
+  /* Subs */
+  try {
+    if (p.subs && p.subs.on) {
+      var listS = listSubtitleTracks();
+      var targetS = null;
+      var j;
+      for (j=0;j<listS.length;j++){
+        var s = listS[j];
+        if (p.subs.id !== null && (s.id === p.subs.id)) { targetS = s; break; }
+      }
+      if (!targetS && p.subs && p.subs.lang) {
+        for (j=0;j<listS.length;j++){ if (listS[j].lang && listS[j].lang === p.subs.lang) { targetS = listS[j]; break; } }
+      }
+      if (!targetS && p.subs && p.subs.label) {
+        for (j=0;j<listS.length;j++){ if (listS[j].label === p.subs.label) { targetS = listS[j]; break; } }
+      }
+      if (targetS) selectSubtitleTrack(targetS);
+    } else {
+      // off
+      selectSubtitleTrack(null);
+    }
+  } catch(e){}
+}
+
+/* === UI nowBar : bouton CC + menu ======================================= */
+(function attachSubsBtn(){
+  var actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+  if (document.getElementById('subsBtn')) return;
+
+  var wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+
+  var btn = document.createElement('button');
+  btn.id = 'subsBtn';
+  btn.title = 'Sous-titres';
+  btn.textContent = 'CC';
+  wrap.appendChild(btn);
+
+  var menu = document.createElement('div');
+  menu.id = 'subsMenu';
+  menu.style.display = 'none';
+  wrap.appendChild(menu);
+
+  actions.appendChild(wrap);
+
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
+    if (menu.style.display === 'block') renderSubsMenu();
+  });
+
+  document.addEventListener('click', function(e){
+    if (!wrap.contains(e.target)) menu.style.display = 'none';
+  });
+})();
+
+/* Menu de sous-titres */
+function renderSubsMenu(){
+  var menu = document.getElementById('subsMenu');
+  if (!menu) return;
+
+  var list = listSubtitleTracks();
+  var html = [];
+
+  // Option OFF
+  var anySel = false;
+  for (var i=0;i<list.length;i++){ if (list[i].selected) { anySel = true; break; } }
+  html.push('<button class="sm-item ' + (anySel ? '' : 'sel') + '" data-i="-1">Désactivés</button>');
+
+  for (var j=0;j<list.length;j++){
+    var t = list[j];
+    var cls = 'sm-item' + (t.selected ? ' sel' : '');
+    var langHtml = t.lang ? (' <span class="sm-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
+    html.push('<button class="' + cls + '" data-i="' + j + '">' + escapeHtml(t.label) + langHtml + '</button>');
+  }
+
+  menu.innerHTML = html.join('');
+
+  var items = menu.querySelectorAll('.sm-item');
+  for (var k=0;k<items.length;k++){
+    (function(idx){
+      items[idx].onclick = function(ev){
+        ev.stopPropagation();
+        var url = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (idx === 0) { // OFF
+          selectSubtitleTrack(null);
+          if (url) setSubsPref(url, null);
+          menu.style.display = 'none';
+          highlightCurrentSubs();
+          return;
+        }
+        var tracks = listSubtitleTracks();
+        var chosen = tracks[idx - 1];
+        selectSubtitleTrack(chosen);
+        if (url) setSubsPref(url, chosen);
+        menu.style.display = 'none';
+        highlightCurrentSubs();
+      };
+    })(k);
+  }
+}
+
+/* Mise en évidence de la sélection courante */
+function highlightCurrentSubs(){
+  var menu = document.getElementById('subsMenu');
+  if (!menu) return;
+  var list = listSubtitleTracks();
+  var items = menu.querySelectorAll('.sm-item');
+  var anySel = false, i;
+  for (i=0;i<list.length;i++){ if (list[i].selected) { anySel = true; break; } }
+  // item 0 = OFF
+  if (items.length) {
+    if (!anySel) items[0].classList.add('sel'); else items[0].classList.remove('sel');
+  }
+  for (i=0;i<list.length;i++){
+    var it = items[i+1];
+    if (!it) continue;
+    if (list[i].selected) it.classList.add('sel'); else it.classList.remove('sel');
+  }
+}
+
+/* === Intégration : appliquer préférences quand un flux démarre ========== */
+/* Si tu as une fonction qui renvoie l’URL courante, expose-la :
+   window.getCurrentUrl = function(){ ... } ;  Sinon, applySavedPrefs(url) est
+   déjà appelée ci-dessous à partir de playHls/playDash via events. */
+
+/* Hook évènements pour mémoriser les choix utilisateur */
+(function hookTrackEvents(){
+  try {
+    if (window.currentHls && window.currentHls.on) {
+      window.currentHls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, function(){ 
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentAudio(u);
+      });
+      window.currentHls.on(window.Hls.Events.SUBTITLE_TRACK_SWITCH, function(){
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentSubs(u);
+      });
+    }
+  } catch(e){}
+  try {
+    if (window.currentDash && window.currentDash.on) {
+      window.currentDash.on(window.dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, function(){
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentAudio(u);
+      });
+      window.currentDash.on(window.dashjs.MediaPlayer.events.TEXT_TRACK_CHANGED, function(){
+        var u = (typeof getCurrentUrl === 'function') ? getCurrentUrl() : null;
+        if (u) rememberCurrentSubs(u);
+      });
+    }
+  } catch(e){}
+})();
+
+/* Appliquer prefs après parsing/manif */
+(function hookApplyPrefs(){
+  // On remplace légerement playHls/playDash déjà présents en leur ajoutant applySavedPrefs
+  var _playHls = (typeof playHls === 'function') ? playHls : null;
+  var _playDash = (typeof playDash === 'function') ? playDash : null;
+
+  if (_playHls) {
+    playHls = function(url){
+      _playHls(url);
+      // attendre un peu que les tracks existent
+      setTimeout(function(){ try { applySavedPrefs(url); renderSubsMenu(); } catch(e){} }, 600);
+    };
+  }
+  if (_playDash) {
+    playDash = function(url){
+      _playDash(url);
+      setTimeout(function(){ try { applySavedPrefs(url); renderSubsMenu(); } catch(e){} }, 600);
+    };
+  }
+})();
+
+
