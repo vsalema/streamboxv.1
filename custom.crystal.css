@@ -300,3 +300,32 @@ body.light #nowBar {
 #audioMenu .am-item.sel { background: rgba(56,189,248,.25); }
 #audioMenu .am-item .am-lang { opacity: .7; font-size: .85em; }
 .am-empty { color:#cbd5e1; padding: 8px 10px; }
+/* Menu sous-titres (nowBar) */
+#subsBtn { min-width: 42px; }
+#subsMenu {
+  position: absolute;
+  right: 0;
+  bottom: 42px; /* au-dessus de la nowBar */
+  background: rgba(15,18,26,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  z-index: 2000;
+}
+#subsMenu .sm-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #fff;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#subsMenu .sm-item:hover { background: rgba(255,255,255,.12); }
+#subsMenu .sm-item.sel { background: rgba(56,189,248,.25); }
+#subsMenu .sm-item .sm-lang { opacity: .7; font-size: .85em; }
+
