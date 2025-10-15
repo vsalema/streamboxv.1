@@ -618,4 +618,30 @@ header .header-logo, header .logo img {
 #nowBar button, #nowBar a{
   min-width: 38px; height: 34px;
 }
+/* NOWBAR en grille: titre à gauche, actions à droite */
+#nowBar{
+  position: fixed;
+  left: 12px; right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+  font-size: 14px !important;   /* annule un éventuel footer{font-size:0} */
+  pointer-events: none;
+  z-index: 1000;
+}
+#nowTitle{
+  min-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+#nowBar .nowbar-actions{
+  display: inline-flex !important;
+  gap: 8px !important;
+  justify-self: end !important;   /* colle à droite */
+  pointer-events: auto;           /* boutons cliquables */
+}
+#nowBar button, #nowBar a{ min-width: 38px; height: 34px; }
 
