@@ -319,7 +319,7 @@ if (mode === 'history') {
       updateNowBar(item.name || item.url, item.url);
       try {
         if (video && video.style.display === 'block') {
-          video.muted = true;            // anti-autoplay
+          video.muted = false;            // anti-autoplay
           const p = video.play();
           if (p && p.catch) p.catch(()=>{});
         }
