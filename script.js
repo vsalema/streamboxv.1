@@ -391,3 +391,20 @@ async function ensureDefaultPlaylistsLoaded(force){
 
   console.log('[IPTV] RESCUE script chargé');
 })();
+// --- Ajuste la hauteur disponible pour le player (Chaînes & co.)
+function updatePlayerLayout() {
+  try {
+    const root = document.documentElement;
+    const header = document.querySelector('header');
+    const headerH = header ? header.offsetHeight : 0;
+    root.style.setProperty('--header-h', headerH + 'px');
+  } catch (e) { console.warn('[layout]', e); }
+}
+
+// Appels initiaux + écoute redimensionnement/orientation
+window.addEventListener('resize', updatePlayerLayout);
+window.addEventListener('orientationchange', updatePlayerLayout);
+document.addEventListener('DOMContentLoaded', updatePlayerLayout);
+// petit tick pour after-paint (polices chargées etc.)
+setTimeout(updatePlayerLayout, 50);
+
