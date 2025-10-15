@@ -779,4 +779,46 @@ aside { min-width: 0 !important; }
   .tabs{ grid-template-columns: repeat(2, 1fr) !important; }
 }
 aside{ min-width: 0 !important; overflow: visible !important; }
+/* Aside = colonne propre, rien ne clipse */
+aside {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+}
+
+/* Onglets : une seule ligne, plus compacts */
+.tabs{
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important; /* répartit sur toute la ligne */
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+.tabs > button{
+  flex: 1 1 0 !important;    /* 4 largeurs égales qui se tassent si besoin */
+  min-width: 0 !important;   /* autorise la compression */
+  height: 30px !important;
+  padding: 0 8px !important; /* plus étroit */
+  font-size: 12px !important;
+  line-height: 1 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important; /* coupe proprement si très long */
+}
+
+/* Bouton "Vérifier les liens" centré sous les onglets */
+#btnVerifyLinks{
+  display: block !important;
+  margin: 8px auto 6px !important;  /* centre horizontalement */
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+  max-width: 220px !important;      /* évite qu’il soit trop large */
+  width: auto !important;
+}
 
