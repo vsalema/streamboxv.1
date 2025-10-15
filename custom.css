@@ -92,4 +92,29 @@ main {
 @keyframes splash_auto_hide {
   to { opacity: 0; visibility: hidden; pointer-events: none; }
 }
+.history-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 6px;
+  margin-bottom: 4px;
+}
+
+.btn-danger {
+  background: #ef4444;         /* rouge */
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-danger:hover { opacity: .9; }
+
+/* si tu n'as pas déjà ce style pour les toasts */
+.toast {
+  position: fixed; left:50%; transform: translateX(-50%);
+  bottom: 20px; background: rgba(0,0,0,.85); color:#fff;
+  padding: 10px 14px; border-radius: 10px; z-index: 10000;
+}
 
