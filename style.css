@@ -219,3 +219,17 @@ main {
   main { grid-template-columns: 1fr; }
   aside { height: 260px; }
 }
+/* Hauteur pilotée par variables (qu’on mettra à jour en JS) */
+:root {
+  --header-h: 64px;        /* valeur par défaut, corrigée en JS */
+  --bottom-reserve: 80px;  /* espace pour la nowBar */
+}
+
+#playerSection {
+  /* Hauteur = fenêtre – header – réserve bas (nowBar) */
+  height: calc(100svh - var(--header-h) - var(--bottom-reserve));
+  min-height: 240px;       /* sécurité */
+}
+
+/* S’assure que la colonne player peut rétrécir */
+main, main > * { min-height: 0; }
