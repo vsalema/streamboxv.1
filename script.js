@@ -408,3 +408,15 @@ document.addEventListener('DOMContentLoaded', updatePlayerLayout);
 // petit tick pour after-paint (polices chargées etc.)
 setTimeout(updatePlayerLayout, 50);
 
+// --- Ferme le splash dans tous les cas ---
+(function killSplash(){
+  const s = document.getElementById('splash');
+  if (!s) return;
+  const hide = () => { s.classList.add('hidden'); setTimeout(()=>s.remove?.(), 600); };
+  setTimeout(hide, 2200);                           // auto-hide
+  document.addEventListener('DOMContentLoaded', hide, { once:true });
+  window.addEventListener('load', hide, { once:true });
+  s.addEventListener('click', hide, { once:true });  // clic = fermer
+})();
+
+
