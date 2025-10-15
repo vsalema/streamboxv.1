@@ -1,0 +1,199 @@
+/* =====================================================================
+   IPTV Player — custom.crystal.css
+   - Thème "cristal" (glassmorphism) moderne
+   - Player unifié (video/iframe/audio)
+   - Splash Clean (auto-hide fiable)
+   - nowBar centrée + largeur max
+   - Outils: bouton Effacer historique + toast
+   ===================================================================== */
+
+:root {
+  --bg-crystal: radial-gradient(1200px 800px at 10% -10%, #1e2636 0%, #0b0f18 45%, #06080e 100%);
+  --glass-bg: rgba(255,255,255,0.08);
+  --glass-stroke: rgba(255,255,255,0.18);
+  --glass-hover: rgba(255,255,255,0.12);
+  --glass-strong: rgba(255,255,255,0.16);
+  --blur: 14px;
+
+  --accent: #7dd3fc;
+  --accent-2: #38bdf8;
+  --accent-glow: 0 0 18px rgba(125,211,252,.45);
+
+  --text-strong: #edf2f7;
+  --text-soft: #bac7d3;
+
+  --stroke: 1px solid var(--glass-stroke);
+  --shadow-1: 0 10px 30px rgba(0,0,0,.35);
+  --shadow-2: 0 30px 60px rgba(0,0,0,.35);
+}
+
+body { background: var(--bg-crystal) !important; color: var(--text-strong) !important; }
+
+header, aside {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--blur)) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%) !important;
+  border-bottom: var(--stroke);
+  box-shadow: var(--shadow-1);
+}
+
+.item {
+  background: var(--glass-bg) !important;
+  border: var(--stroke) !important;
+  backdrop-filter: blur(calc(var(--blur) - 2px)) !important;
+  -webkit-backdrop-filter: blur(calc(var(--blur) - 2px)) !important;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.item:hover {
+  background: var(--glass-hover) !important;
+  border-color: var(--accent-2) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--accent-glow), var(--shadow-1);
+}
+
+button, .nowbar a, .nowbar button, .fileLabel {
+  background: linear-gradient(180deg, var(--glass-strong), rgba(255,255,255,0.04)) !important;
+  border: var(--stroke) !important;
+  color: var(--text-strong) !important;
+  backdrop-filter: blur(calc(var(--blur) - 4px)) !important;
+  -webkit-backdrop-filter: blur(calc(var(--blur) - 4px)) !important;
+  box-shadow: var(--shadow-1);
+}
+button:hover, .nowbar a:hover, .nowbar button:hover, .fileLabel:hover {
+  border-color: var(--accent-2) !important;
+  box-shadow: var(--accent-glow), var(--shadow-1);
+}
+
+.tabs button { background: var(--glass-bg) !important; border-bottom: 2px solid transparent !important; }
+.tabs button.active {
+  border-color: var(--accent-2) !important;
+  color: var(--text-strong) !important;
+  text-shadow: 0 0 6px rgba(125,211,252,.35);
+}
+
+.logo-sm { background: rgba(255,255,255,.08) !important; border: var(--stroke); }
+#catBar .cat { background: var(--glass-bg) !important; border: var(--stroke); }
+#catBar .cat.active {
+  background: linear-gradient(180deg, rgba(56,189,248,.35), rgba(56,189,248,.15));
+  color:#fff; border-color: var(--accent-2);
+}
+
+/* PLAYER */
+#playerSection {
+  position: relative !important;
+  display: block !important;
+  background: rgba(0,0,0,.55) !important;
+  overflow: hidden !important;
+  border: var(--stroke);
+  box-shadow: var(--shadow-2);
+}
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: none;
+  background: #000 !important;
+  object-fit: contain !important;
+  border: 0 !important;
+  box-sizing: border-box !important;
+  z-index: 1;
+}
+#ytPlayer { aspect-ratio: auto; }
+
+#noSource {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 0 !important;
+  pointer-events: none;
+  opacity: .85;
+}
+#playerSection.playing #noSource { display: none !important; }
+
+/* NOW BAR */
+footer { height: 64px; font-size: 0; border-top: none; text-align: center; }
+#nowBar {
+  position: fixed !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: min(1200px, calc(100vw - 24px)) !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+
+  background: rgba(8,12,20,.55);
+  border: var(--stroke);
+  backdrop-filter: blur(calc(var(--blur) - 4px));
+  -webkit-backdrop-filter: blur(calc(var(--blur) - 4px));
+  box-shadow: var(--accent-glow), var(--shadow-1);
+  color: var(--text-strong);
+}
+#nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto !important; }
+main { padding-bottom: 80px; overflow: hidden; }
+@media (max-width: 900px) { #nowBar { bottom: 64px; } }
+
+/* SPLASH Clean */
+#splash {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,0.85);
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transition: opacity .35s ease;
+}
+#splash.hidden { opacity: 0 !important; pointer-events: none !important; }
+#splash .splash-card {
+  display: grid; justify-items: center; gap: 8px;
+  background: rgba(16,20,28,.75);
+  border: var(--stroke);
+  backdrop-filter: blur(calc(var(--blur) + 2px));
+  -webkit-backdrop-filter: blur(calc(var(--blur) + 2px));
+  box-shadow: var(--accent-glow), var(--shadow-2);
+  min-width: 220px; padding: 18px 22px; border-radius: 14px;
+}
+#splash .splash-logo { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 0 10px var(--accent)); }
+#splash .splash-title { color:#fff; font-weight: 700; letter-spacing:.4px; }
+#splash .splash-sub { color:#ddd; font-size:.9rem; opacity:.9; }
+#splash .splash-spinner {
+  width: 28px; height: 28px;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: splash-spin .9s linear infinite;
+  margin-top: 6px;
+}
+@keyframes splash-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  #splash, #splash .splash-spinner { animation: none !important; }
+  #splash { transition: none !important; }
+}
+
+/* Historique + Toast */
+.history-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 6px;
+  margin-bottom: 4px;
+}
+.btn-danger {
+  background: #ef4444; color: #fff; border: 0; border-radius: 8px;
+  padding: 6px 10px; cursor: pointer; font-weight: 600;
+}
+.btn-danger:hover { opacity: .9; }
+.toast {
+  position: fixed; left:50%; transform: translateX(-50%);
+  bottom: 20px; background: rgba(0,0,0,.85); color:#fff;
+  padding: 10px 14px; border-radius: 10px; z-index: 10000;
+}
