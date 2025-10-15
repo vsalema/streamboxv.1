@@ -1,4 +1,8 @@
 // ============= IPTV Player – RESCUE SCRIPT (baseline propre) =============
+// --- Instances lecteurs pour changer de piste (audio tracks)
+let currentHls = null; // Hls.js
+let currentDash = null; // dash.js
+
 // Ce fichier remplace intégralement script.js pour déblocage rapide.
 // Fonctions: coller URL, importer M3U, lister chaînes (logos, groupes), jouer HLS/MP4/MP3/MPD/YouTube.
 // ========================================================================
@@ -75,6 +79,10 @@ function setPlaying(on){
   } catch {}
 }
 function resetPlayers(){
+
+try { if (currentHls) { currentHls.destroy(); currentHls = null; } } catch {}
+try { if (currentDash && currentDash.reset) { currentDash.reset(); currentDash = null; } } catch {}
+
   try { video.pause(); } catch {}
   try { audio.pause(); } catch {}
   video.style.display = 'none';
@@ -91,13 +99,29 @@ function updateNowBar(nameOrUrl, url){
 // --- Players ---
 function playHls(url){
   video.style.display = 'block';
-  setPlaying(true);
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch {}
   try {
     if (window.Hls && window.Hls.isSupported()) {
+      if (currentHls) { try { currentHls.destroy(); } catch{} }
       const hls = new window.Hls();
+      currentHls = hls;
       hls.on(window.Hls.Events.ERROR, (evt, data) => {
-        console.warn('[HLS.js error]', data);
-        if (data?.fatal) { hls.destroy(); video.src = url; }
+        if (data?.fatal) { try { hls.destroy(); } catch{}; currentHls = null; video.src = url; }
+      });
+      hls.on(window.Hls.Events.MANIFEST_PARSED, () => { try { renderAudioMenu(); } catch{} });
+      hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, () => { try { highlightCurrentAudio(); } catch{} });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url; // natif Safari
+      video.addEventListener('loadedmetadata', () => { try { renderAudioMenu(); } catch{} }, {once:true});
+    }
+  } catch (e) {
+    console.error('[playHls]', e);
+    video.src = url;
+  }
+  try { updateNowBar(undefined, url); } catch {}
+}
       });
       hls.loadSource(url);
       hls.attachMedia(video);
@@ -112,12 +136,23 @@ function playHls(url){
 }
 function playDash(url){
   video.style.display = 'block';
-  setPlaying(true);
+  try { if (typeof setPlaying === 'function') setPlaying(true); } catch {}
   const DASH = window.dashjs?.MediaPlayer;
   if (DASH && typeof DASH.create === 'function') {
+    if (currentDash && currentDash.reset) { try { currentDash.reset(); } catch{} }
     const p = DASH.create();
+    currentDash = p;
     p.initialize(video, url, true);
+    try {
+      p.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => { try { renderAudioMenu(); } catch{} });
+      p.on(dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, () => { try { highlightCurrentAudio(); } catch{} });
+    } catch {}
   } else {
+    video.src = url; // fallback
+    video.addEventListener('loadedmetadata', () => { try { renderAudioMenu(); } catch{} }, {once:true});
+  }
+  try { updateNowBar(undefined, url); } catch {}
+} else {
     video.src = url; // fallback
   }
   updateNowBar(undefined, url);
@@ -537,3 +572,113 @@ apply(t);
 })();
 
 
+
+
+// ==== Audio Tracks helpers (HLS/DASH/native) ====
+function listAudioTracks(){
+  if (currentHls && Array.isArray(currentHls.audioTracks)) {
+    const idx = (typeof currentHls.audioTrack === 'number') ? currentHls.audioTrack : -1;
+    return currentHls.audioTracks.map((t, i) => ({
+      id: i, label: t.name || t.lang || `Piste ${i+1}`, lang: t.lang || '',
+      selected: i === idx, type: 'hls'
+    }));
+  }
+  if (currentDash && currentDash.getTracksFor) {
+    try {
+      const tracks = currentDash.getTracksFor('audio') || [];
+      const cur = currentDash.getCurrentTrack('audio');
+      return tracks.map((t) => ({
+        id: t, label: t.lang || (t.labels && t.labels[0]) || t.role || 'Audio', lang: t.lang || '',
+        selected: !!(cur && (cur.id === t.id)), type: 'dash'
+      }));
+    } catch {}
+  }
+  try {
+    if (video && video.audioTracks && video.audioTracks.length) {
+      const out = [];
+      for (let i=0;i<video.audioTracks.length;i++){
+        const t = video.audioTracks[i];
+        out.push({ id: i, label: t.label || t.language || `Piste ${i+1}`, lang: t.language || '', selected: t.enabled, type: 'native' });
+      }
+      return out;
+    }
+  } catch {}
+  return [];
+}
+
+function selectAudioTrack(track){
+  if (!track) return;
+  try {
+    if (track.type === 'hls' && currentHls) {
+      currentHls.audioTrack = track.id;
+    } else if (track.type === 'dash' && currentDash) {
+      currentDash.setCurrentTrack(track.id);
+    } else if (track.type === 'native' && video && video.audioTracks) {
+      for (let i=0;i<video.audioTracks.length;i++){
+        video.audioTracks[i].enabled = (i === track.id);
+      }
+    }
+  } catch(e){ console.warn('[selectAudioTrack]', e); }
+  try { highlightCurrentAudio(); } catch {}
+}
+
+(function attachAudioBtn(){
+  const actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+  if (document.getElementById('audioBtn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'audioBtn';
+  btn.title = 'Piste audio';
+  btn.textContent = '🎧 Audio';
+
+  const menu = document.createElement('div');
+  menu.id = 'audioMenu';
+  menu.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  actions.appendChild(wrap);
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
+    if (menu.style.display === 'block') renderAudioMenu();
+  });
+
+  document.addEventListener('click', (e)=>{
+    if (!wrap.contains(e.target)) menu.style.display = 'none';
+  });
+})();
+
+function renderAudioMenu(){
+  const menu = document.getElementById('audioMenu');
+  if (!menu) return;
+  const tracks = listAudioTracks();
+  if (!tracks.length) {
+    menu.innerHTML = `<div class="am-empty">Aucune piste détectée</div>`;
+    return;
+  }
+  menu.innerHTML = tracks.map((t, i) =>
+    `<button class="am-item ${t.selected?'sel':''}" data-i="${i}">${escapeHtml(t.label)}${t.lang?` <span class="am-lang">(${t.lang})</span>`:''}</button>`
+  ).join('');
+
+  menu.querySelectorAll('.am-item').forEach((b, i)=>{
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const chosen = tracks[i];
+      selectAudioTrack(chosen);
+      menu.style.display = 'none';
+    };
+  });
+}
+
+function highlightCurrentAudio(){
+  const menu = document.getElementById('audioMenu');
+  if (!menu) return;
+  const tracks = listAudioTracks();
+  const items = menu.querySelectorAll('.am-item');
+  items.forEach((el, i) => el.classList.toggle('sel', !!tracks[i]?.selected));
+}
