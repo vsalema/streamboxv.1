@@ -224,3 +224,49 @@ body.light #nowBar {
   color: var(--text-strong) !important;
 }
 
+/* === Fix layout nowBar: titre + actions alignés sans chevauchement === */
+#nowBar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 8px 10px !important;
+  pointer-events: none !important; /* on garde le pass-through global */
+  box-sizing: border-box !important;
+}
+
+/* Titre: prend la place dispo, ellipsé si trop long */
+#nowTitle {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;              /* clé pour activer ellipsis en flex */
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  margin-right: 8px !important;
+  pointer-events: auto !important;       /* au cas où click copy titre, etc. */
+}
+
+/* Zone actions à droite */
+#nowBar .nowbar-actions {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  pointer-events: auto !important;       /* boutons cliquables */
+}
+
+/* Boutons/links de la barre */
+#nowBar .nowbar-actions > *,
+#nowBar a,
+#nowBar button {
+  flex: 0 0 auto !important;
+  pointer-events: auto !important;
+  white-space: nowrap !important;
+  max-width: none !important;
+}
+
+/* (optionnel) taille minimale pour des boutons carrés harmonieux */
+#fsBtn, #copyBtn {
+  min-width: 38px !important;
+  text-align: center !important;
+}
