@@ -752,4 +752,30 @@ aside { min-width: 0 !important; }
   font-size: 12px !important;
   border-radius: 999px !important;
 }
+/* Onglets: 4 cases fixes en grille (pas de bouton coupé) */
+.tabs{
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important; /* 4 colonnes égales */
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important; /* ne pas clipser */
+}
+.tabs > button{
+  min-width: 0 !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important; /* coupe proprement les libellés longs */
+}
+
+/* Responsive: sur petit écran, 2 x 2 */
+@media (max-width: 480px){
+  .tabs{ grid-template-columns: repeat(2, 1fr) !important; }
+}
 
