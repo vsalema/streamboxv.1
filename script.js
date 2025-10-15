@@ -476,7 +476,7 @@ function clearHistory(){
   let t = 'dark';
   try {
     const saved = localStorage.getItem(LSKEY);
-    if (saved === 'light' || saved === 'dark') t = saved;
+    if (saved === 'dark' || saved === 'light') t = saved;
     else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
   } catch {}
   apply(t);
