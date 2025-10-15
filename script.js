@@ -33,6 +33,9 @@ const tabs = {
 const nowTitle = document.getElementById('nowTitle');
 const copyBtn  = document.getElementById('copyBtn');
 const openBtn  = document.getElementById('openBtn');
+// état par défaut : son actif
+video.muted = false;
+audio.muted = false;
 
 // --- Storage helpers ---
 const LS = { fav:'iptv.favorites', hist:'iptv.history', last:'iptv.lastUrl', theme:'theme', playlists:'iptv.playlists' };
@@ -312,18 +315,25 @@ if (mode === 'history') {
       </div>
       <span class="star">${isFav(item.url) ? '★' : '☆'}</span>
     `;
-    div.onclick = () => {
-      try { resetPlayers(); } catch {}
-      if (noSource) noSource.style.display = 'none';
-      playByType(item.url);
-      updateNowBar(item.name || item.url, item.url);
-      try {
-        if (video && video.style.display === 'block') {
-          video.muted = true;            // anti-autoplay
-          const p = video.play();
-          if (p && p.catch) p.catch(()=>{});
-        }
-      } catch {}
+   div.onclick = () => {
+  try { resetPlayers(); } catch {}
+  if (noSource) noSource.style.display = 'none';
+  playByType(item.url);
+  updateNowBar(item.name || item.url, item.url);
+  addHistory(item.url);
+
+  // lecture avec son
+  try {
+    if (video && video.style.display === 'block') {
+      video.muted = false;
+      const p = video.play();
+      if (p && p.catch) p.catch(()=>{});
+    } else if (audio && audio.style.display === 'block') {
+      audio.muted = false;
+      const p = audio.play();
+      if (p && p.catch) p.catch(()=>{});
+    }
+  } catch {}
       addHistory(item.url);
     };
     div.querySelector('.star').onclick = (e)=>{
@@ -351,15 +361,25 @@ tabs.history && (tabs.history.onclick   = ()=>switchTab('history'));
 tabs.playlists && (tabs.playlists.onclick=()=>switchTab('playlists'));
 
 // --- Controls ---
-loadBtn && (loadBtn.onclick = ()=>{
-  const v = (input.value||'').trim();
-  if (!v) return;
-  resetPlayers();
-  if (noSource) noSource.style.display = 'none';
-  playByType(v);
-  updateNowBar(v, v);
-  addHistory(v);
-});
+resetPlayers();
+if (noSource) noSource.style.display = 'none';
+playByType(v);
+updateNowBar(v, v);
+addHistory(v);
+
+// lecture avec son
+try {
+  if (video && video.style.display === 'block') {
+    video.muted = false;
+    const p = video.play();
+    if (p && p.catch) p.catch(()=>{ /* si le navigateur bloque, l'utilisateur doit cliquer Play */ });
+  } else if (audio && audio.style.display === 'block') {
+    audio.muted = false;
+    const p = audio.play();
+    if (p && p.catch) p.catch(()=>{});
+  }
+} catch {}
+
 fileInput && (fileInput.onchange = async (e)=>{
   const f = e.target.files?.[0]; if (!f) return;
   const txt = await f.text();
