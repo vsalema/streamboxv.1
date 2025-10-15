@@ -1257,4 +1257,14 @@ function highlightCurrentSubs(){
   doc.addEventListener('webkitfullscreenchange', setLabels);
   setLabels();
 })();
-
+(() => {
+  const bar = document.getElementById('catBar');
+  if (!bar) return;
+  bar.addEventListener('wheel', (e) => {
+    // Convertit le scroll vertical en horizontal
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      bar.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+})();
