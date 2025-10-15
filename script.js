@@ -486,5 +486,54 @@ apply(t);
   }
 })();
 
+// === Bouton Plein écran (dans la nowBar) ==================================
+(() => {
+  const actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+
+  // Crée le bouton
+  const fsBtn = document.createElement('button');
+  fsBtn.id = 'fsBtn';
+  fsBtn.title = 'Plein écran';
+  fsBtn.textContent = '⤢'; // icône simple, compatible partout
+  fsBtn.style.minWidth = '38px'; // pour matcher la taille des autres
+  actions.appendChild(fsBtn);
+
+  // Utilitaires
+  const playerSection = document.getElementById('playerSection');
+  const video = document.getElementById('videoPlayer');
+  const audio = document.getElementById('audioPlayer');
+
+  const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const setLabel = () => { fsBtn.textContent = isFullscreen() ? '⤡' : '⤢'; }; // ⤡ = quitter
+
+  const activeMedia = () => {
+    if (video && video.style.display === 'block') return video;
+    if (audio && audio.style.display === 'block') return audio;
+    return playerSection || document.documentElement;
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (isFullscreen()) {
+        await (document.exitFullscreen?.() || document.webkitExitFullscreen?.());
+      } else {
+        const target = activeMedia();
+        // iOS Safari plein écran natif de la vidéo si possible
+        if (target === video && video.webkitSupportsFullscreen && !document.pictureInPictureElement) {
+          video.webkitEnterFullscreen(); // bascule plein écran iOS
+        } else {
+          await (target.requestFullscreen?.() || target.webkitRequestFullscreen?.());
+        }
+      }
+    } catch (e) { console.warn('[fullscreen]', e); }
+    setLabel();
+  };
+
+  fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(); });
+  document.addEventListener('fullscreenchange', setLabel);
+  document.addEventListener('webkitfullscreenchange', setLabel);
+  setLabel();
+})();
 
 
