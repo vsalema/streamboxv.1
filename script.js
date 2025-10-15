@@ -456,3 +456,35 @@ function clearHistory(){
   }
 }
 
+// === Thème clair/sombre (init + toggle + mémoire) =========================
+const THEME_LS_KEY = 'theme';
+const themeBtn = document.getElementById('themeToggle');
+
+function applyTheme(t) {
+  const isLight = t === 'light';
+  document.body.classList.toggle('light', isLight);
+  try { localStorage.setItem(THEME_LS_KEY, isLight ? 'light' : 'dark'); } catch {}
+  // icône du bouton
+  if (themeBtn) themeBtn.textContent = isLight ? '☀️' : '🌙';
+}
+
+// 1) initialisation: préférence sauvegardée > préférence système > sombre
+(function initTheme(){
+  let t = 'dark';
+  try {
+    const saved = localStorage.getItem(THEME_LS_KEY);
+    if (saved === 'light' || saved === 'dark') t = saved;
+    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+  } catch {}
+  applyTheme(t);
+})();
+
+// 2) toggle au clic
+if (themeBtn) {
+  themeBtn.addEventListener('click', () => {
+    const next = document.body.classList.contains('light') ? 'dark' : 'light';
+    applyTheme(next);
+  });
+}
+
+
