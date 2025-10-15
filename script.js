@@ -3,8 +3,7 @@
 // Fonctions: coller URL, importer M3U, lister chaînes (logos, groupes), jouer HLS/MP4/MP3/MPD/YouTube.
 // ========================================================================
 // état par défaut : son actif
-video.muted = false;
-audio
+
 
 // --- Sécurité & logs ---
 window.addEventListener('error', e => console.error('[IPTV:error]', e.message, e.filename, e.lineno));
