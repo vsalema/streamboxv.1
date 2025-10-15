@@ -1563,4 +1563,13 @@ function pingVisibleList(concurrency){
   // Expose pour que tu puisses l’appeler après tout changement d’UI
   window.fixNowBar = normalizeNowBar;
 })();
+// Place #btnVerifyLinks dans .tabs et force l'alignement à droite
+(() => {
+  const tabs = document.querySelector('.tabs');
+  const verify = document.getElementById('btnVerifyLinks');
+  if (tabs && verify && verify.parentElement !== tabs) {
+    tabs.appendChild(verify);
+  }
+  if (verify) verify.style.marginLeft = 'auto';
+})();
 
