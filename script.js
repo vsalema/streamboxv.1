@@ -1583,4 +1583,16 @@ function pingVisibleList(concurrency){
     }
   }, { passive: false });
 })();
+// Place le bouton "Vérifier les liens" APRES la barre d'onglets (pas dedans)
+(() => {
+  const tabs = document.querySelector('.tabs');
+  const verify = document.getElementById('btnVerifyLinks');
+  if (tabs && verify && verify.parentElement === tabs) {
+    tabs.insertAdjacentElement('afterend', verify);
+  }
+  if (verify) {
+    verify.style.margin = '6px 8px';
+    verify.style.alignSelf = 'auto';
+  }
+})();
 
