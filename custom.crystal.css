@@ -778,4 +778,5 @@ aside { min-width: 0 !important; }
 @media (max-width: 480px){
   .tabs{ grid-template-columns: repeat(2, 1fr) !important; }
 }
+aside{ min-width: 0 !important; overflow: visible !important; }
 
