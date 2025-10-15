@@ -474,12 +474,11 @@ function clearHistory(){
 
   // init: préférence sauvegardée > préférence système > sombre
   let t = 'dark';
-  try {
-    const saved = localStorage.getItem(LSKEY);
-    if (saved === 'dark' || saved === 'light') t = saved;
-    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
-  } catch {}
-  apply(t);
+try {
+  const saved = localStorage.getItem(LSKEY);
+  if (saved === 'light' || saved === 'dark') t = saved;  // sinon, on garde 'dark'
+} catch {}
+apply(t);
 
   // handler unique (écrase les anciens avec onclick)
   if (btn) {
