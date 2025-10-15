@@ -233,3 +233,15 @@ main {
 
 /* S’assure que la colonne player peut rétrécir */
 main, main > * { min-height: 0; }
+
+(() => {
+  const bar = document.getElementById('catBar');
+  if (!bar) return;
+  bar.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      bar.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive:false });
+})();
+
