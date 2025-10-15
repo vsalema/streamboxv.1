@@ -65,3 +65,50 @@ main { padding-bottom: 76px; }
 /* (Optionnel) si la colonne de gauche influence la hauteur, on sécurise */
 main { overflow: hidden; }         /* évite les décalages de grille */
 
+/* Unifier le rendu : le player ne déborde jamais en "Chaînes" */
+#playerSection {
+  position: relative !important;
+  display: block !important;
+  background: #000 !important;
+  overflow: hidden !important;           /* coupe tout débordement */
+}
+
+/* Tous les médias occupent EXACTEMENT le cadre du player */
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute !important;
+  inset: 0 !important;                   /* top/right/bottom/left: 0 */
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: none;                          /* JS met "block" sur le bon média */
+  background: #000 !important;
+  object-fit: contain !important;         /* pas de crop */
+  border: 0 !important;                   /* utile pour l'iframe YouTube */
+  box-sizing: border-box !important;
+  z-index: 1;
+}
+
+/* Message d’attente hors layout et masqué quand ça joue */
+#noSource {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  z-index: 0 !important;                  /* sous le média */
+  pointer-events: none;
+}
+#playerSection.playing #noSource { display: none !important; }
+
+/* nowBar en bas de page (ne masque jamais les contrôles) */
+footer { height: 64px; font-size: 0; border-top: none; }
+#nowBar {
+  position: fixed; left: 12px; right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 1000; pointer-events: none;
+}
+#nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto; }
+main { padding-bottom: 80px; }
