@@ -1595,4 +1595,13 @@ function pingVisibleList(concurrency){
     verify.style.alignSelf = 'auto';
   }
 })();
+// Place #btnVerifyLinks juste sous les onglets, centré
+(() => {
+  const tabs = document.querySelector('.tabs');
+  const verify = document.getElementById('btnVerifyLinks');
+  if (!tabs || !verify) return;
+  if (verify.parentElement === tabs) {
+    tabs.insertAdjacentElement('afterend', verify);
+  }
+})();
 
