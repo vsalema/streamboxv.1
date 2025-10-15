@@ -62,4 +62,27 @@ footer {
 main {
   overflow: hidden;           /* évite glitch de grille */
   padding-bottom: 80px;       /* espace pour la nowBar */
+  }
+
+#nowBar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1200px, calc(100vw - 24px));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 1000;
+  pointer-events: none;
 }
+#nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto; }
+/* Splash: auto-hide même si le JS plante */
+#splash {
+  position: fixed; inset: 0; z-index: 9999;
+  opacity: 1; pointer-events: auto;
+  animation: splash_auto_hide 0.001s step-end forwards;
+  animation-delay: 2.2s;
+}
+#splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+@keyframes splash_auto_hide {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
