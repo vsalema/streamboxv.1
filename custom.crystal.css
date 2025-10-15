@@ -644,4 +644,36 @@ header .header-logo, header .logo img {
   pointer-events: auto;           /* boutons cliquables */
 }
 #nowBar button, #nowBar a{ min-width: 38px; height: 34px; }
+/* === NOWBAR FINAL OVERRIDE (écrase les anciennes règles) ================ */
+#nowBar{
+  position: fixed !important;
+  left: 12px !important;
+  right: 12px !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  transform: none !important;
+  width: auto !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+  font-size: 14px !important;
+  pointer-events: none !important;
+  z-index: 1000 !important;
+}
+#nowTitle{
+  min-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+#nowBar .nowbar-actions{
+  display: inline-flex !important;
+  gap: 8px !important;
+  justify-self: end !important;
+  pointer-events: auto !important;
+}
+#nowBar button, #nowBar a{
+  min-width: 38px !important;
+  height: 34px !important;
+}
 
