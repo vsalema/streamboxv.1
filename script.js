@@ -1,8 +1,4 @@
 // ============= IPTV Player – RESCUE SCRIPT (baseline propre) =============
-// --- Instances lecteurs pour changer de piste (audio tracks)
-let currentHls = null; // Hls.js
-let currentDash = null; // dash.js
-
 // Ce fichier remplace intégralement script.js pour déblocage rapide.
 // Fonctions: coller URL, importer M3U, lister chaînes (logos, groupes), jouer HLS/MP4/MP3/MPD/YouTube.
 // ========================================================================
@@ -79,10 +75,6 @@ function setPlaying(on){
   } catch {}
 }
 function resetPlayers(){
-
-try { if (currentHls) { currentHls.destroy(); currentHls = null; } } catch {}
-try { if (currentDash && currentDash.reset) { currentDash.reset(); currentDash = null; } } catch {}
-
   try { video.pause(); } catch {}
   try { audio.pause(); } catch {}
   video.style.display = 'none';
@@ -99,29 +91,13 @@ function updateNowBar(nameOrUrl, url){
 // --- Players ---
 function playHls(url){
   video.style.display = 'block';
-  try { if (typeof setPlaying === 'function') setPlaying(true); } catch {}
+  setPlaying(true);
   try {
     if (window.Hls && window.Hls.isSupported()) {
-      if (currentHls) { try { currentHls.destroy(); } catch{} }
       const hls = new window.Hls();
-      currentHls = hls;
       hls.on(window.Hls.Events.ERROR, (evt, data) => {
-        if (data?.fatal) { try { hls.destroy(); } catch{}; currentHls = null; video.src = url; }
-      });
-      hls.on(window.Hls.Events.MANIFEST_PARSED, () => { try { renderAudioMenu(); } catch{} });
-      hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, () => { try { highlightCurrentAudio(); } catch{} });
-      hls.loadSource(url);
-      hls.attachMedia(video);
-    } else {
-      video.src = url; // natif Safari
-      video.addEventListener('loadedmetadata', () => { try { renderAudioMenu(); } catch{} }, {once:true});
-    }
-  } catch (e) {
-    console.error('[playHls]', e);
-    video.src = url;
-  }
-  try { updateNowBar(undefined, url); } catch {}
-}
+        console.warn('[HLS.js error]', data);
+        if (data?.fatal) { hls.destroy(); video.src = url; }
       });
       hls.loadSource(url);
       hls.attachMedia(video);
@@ -136,23 +112,12 @@ function playHls(url){
 }
 function playDash(url){
   video.style.display = 'block';
-  try { if (typeof setPlaying === 'function') setPlaying(true); } catch {}
+  setPlaying(true);
   const DASH = window.dashjs?.MediaPlayer;
   if (DASH && typeof DASH.create === 'function') {
-    if (currentDash && currentDash.reset) { try { currentDash.reset(); } catch{} }
     const p = DASH.create();
-    currentDash = p;
     p.initialize(video, url, true);
-    try {
-      p.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => { try { renderAudioMenu(); } catch{} });
-      p.on(dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, () => { try { highlightCurrentAudio(); } catch{} });
-    } catch {}
   } else {
-    video.src = url; // fallback
-    video.addEventListener('loadedmetadata', () => { try { renderAudioMenu(); } catch{} }, {once:true});
-  }
-  try { updateNowBar(undefined, url); } catch {}
-} else {
     video.src = url; // fallback
   }
   updateNowBar(undefined, url);
@@ -571,348 +536,6 @@ apply(t);
   setLabel();
 })();
 
-
-
-
-// ==== Audio Tracks helpers (HLS/DASH/native) ====
-function listAudioTracks(){
-  if (currentHls && Array.isArray(currentHls.audioTracks)) {
-    const idx = (typeof currentHls.audioTrack === 'number') ? currentHls.audioTrack : -1;
-    return currentHls.audioTracks.map((t, i) => ({
-      id: i, label: t.name || t.lang || `Piste ${i+1}`, lang: t.lang || '',
-      selected: i === idx, type: 'hls'
-    }));
-  }
-  if (currentDash && currentDash.getTracksFor) {
-    try {
-      const tracks = currentDash.getTracksFor('audio') || [];
-      const cur = currentDash.getCurrentTrack('audio');
-      return tracks.map((t) => ({
-        id: t, label: t.lang || (t.labels && t.labels[0]) || t.role || 'Audio', lang: t.lang || '',
-        selected: !!(cur && (cur.id === t.id)), type: 'dash'
-      }));
-    } catch {}
-  }
-  try {
-    if (video && video.audioTracks && video.audioTracks.length) {
-      const out = [];
-      for (let i=0;i<video.audioTracks.length;i++){
-        const t = video.audioTracks[i];
-        out.push({ id: i, label: t.label || t.language || `Piste ${i+1}`, lang: t.language || '', selected: t.enabled, type: 'native' });
-      }
-      return out;
-    }
-  } catch {}
-  return [];
-}
-
-function selectAudioTrack(track){
-  if (!track) return;
-  try {
-    if (track.type === 'hls' && currentHls) {
-      currentHls.audioTrack = track.id;
-    } else if (track.type === 'dash' && currentDash) {
-      currentDash.setCurrentTrack(track.id);
-    } else if (track.type === 'native' && video && video.audioTracks) {
-      for (let i=0;i<video.audioTracks.length;i++){
-        video.audioTracks[i].enabled = (i === track.id);
-      }
-    }
-  } catch(e){ console.warn('[selectAudioTrack]', e); }
-  try { highlightCurrentAudio(); } catch {}
-}
-
-(function attachAudioBtn(){
-  const actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
-  if (!actions) return;
-  if (document.getElementById('audioBtn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'audioBtn';
-  btn.title = 'Piste audio';
-  btn.textContent = '🎧 Audio';
-
-  const menu = document.createElement('div');
-  menu.id = 'audioMenu';
-  menu.style.display = 'none';
-
-  const wrap = document.createElement('div');
-  wrap.style.position = 'relative';
-  wrap.appendChild(btn);
-  wrap.appendChild(menu);
-  actions.appendChild(wrap);
-
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
-    if (menu.style.display === 'block') renderAudioMenu();
-  });
-
-  document.addEventListener('click', (e)=>{
-    if (!wrap.contains(e.target)) menu.style.display = 'none';
-  });
-})();
-
-function renderAudioMenu(){
-  const menu = document.getElementById('audioMenu');
-  if (!menu) return;
-
-  const tracks = listAudioTracks();
-  if (!tracks.length) {
-    menu.innerHTML = '<div class="am-empty">Aucune piste détectée</div>';
-    return;
-  }
-
-  // Pas de backticks imbriqués : on concatène proprement
-  menu.innerHTML = tracks.map((t, i) => {
-    const langHtml = t.lang ? (' <span class="am-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
-    return (
-      '<button class="am-item ' + (t.selected ? 'sel' : '') + '" data-i="' + i + '">' +
-        escapeHtml(t.label) + langHtml +
-      '</button>'
-    );
-  }).join('');
-
-  menu.querySelectorAll('.am-item').forEach((b, i)=>{
-    b.onclick = (e) => {
-      e.stopPropagation();
-      const chosen = tracks[i];
-      selectAudioTrack(chosen);
-      menu.style.display = 'none';
-    };
-  });
-}
-
-
-function highlightCurrentAudio(){
-  const menu = document.getElementById('audioMenu');
-  if (!menu) return;
-  const tracks = listAudioTracks();
-  const items = menu.querySelectorAll('.am-item');
-  items.forEach((el, i) => el.classList.toggle('sel', !!tracks[i]?.selected));
-}
-/* ===== Audio Tracks SAFE v2 (HLS/DASH/native) — paste at end ===== */
-
-/* 1) Helpers sûrs (sans optional chaining / backticks) */
-function listAudioTracks(){
-  // HLS.js
-  try {
-    if (typeof currentHls !== 'undefined' && currentHls && typeof currentHls.audioTracks !== 'undefined') {
-      var idx = (typeof currentHls.audioTrack === 'number') ? currentHls.audioTrack : -1;
-      var arr = [];
-      for (var i=0; i<currentHls.audioTracks.length; i++) {
-        var t = currentHls.audioTracks[i] || {};
-        arr.push({
-          id: i,
-          label: t.name || t.lang || ('Piste ' + (i+1)),
-          lang: t.lang || '',
-          selected: i === idx,
-          type: 'hls'
-        });
-      }
-      return arr;
-    }
-  } catch(e){}
-
-  // dash.js
-  try {
-    if (typeof currentDash !== 'undefined' && currentDash && typeof currentDash.getTracksFor === 'function') {
-      var tracks = currentDash.getTracksFor('audio') || [];
-      var cur = currentDash.getCurrentTrack('audio');
-      var out = [];
-      for (var j=0; j<tracks.length; j++) {
-        var d = tracks[j] || {};
-        var lab = d.lang || (d.labels && d.labels[0]) || d.role || 'Audio';
-        var sel = !!(cur && (cur.id === d.id));
-        out.push({ id: d, label: lab, lang: d.lang || '', selected: sel, type: 'dash' });
-      }
-      return out;
-    }
-  } catch(e){}
-
-  // Natif (rarement dispo)
-  try {
-    if (typeof video !== 'undefined' && video && video.audioTracks && video.audioTracks.length) {
-      var nout = [];
-      for (var k=0; k<video.audioTracks.length; k++) {
-        var nt = video.audioTracks[k];
-        nout.push({
-          id: k,
-          label: nt.label || nt.language || ('Piste ' + (k+1)),
-          lang: nt.language || '',
-          selected: !!nt.enabled,
-          type: 'native'
-        });
-      }
-      return nout;
-    }
-  } catch(e){}
-
-  return [];
-}
-
-function selectAudioTrack(track){
-  if (!track) return;
-  try {
-    if (track.type === 'hls' && typeof currentHls !== 'undefined' && currentHls) {
-      currentHls.audioTrack = track.id;
-    } else if (track.type === 'dash' && typeof currentDash !== 'undefined' && currentDash) {
-      currentDash.setCurrentTrack(track.id);
-    } else if (track.type === 'native' && typeof video !== 'undefined' && video && video.audioTracks) {
-      for (var i=0;i<video.audioTracks.length;i++){
-        video.audioTracks[i].enabled = (i === track.id);
-      }
-    }
-  } catch(e){}
-  try { highlightCurrentAudio(); } catch(e){}
-}
-
-/* 2) Menu UI (nowBar) — version sans templates */
-(function attachAudioBtn(){
-  var actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
-  if (!actions) return;
-  if (document.getElementById('audioBtn')) return;
-
-  var wrap = document.createElement('div');
-  wrap.style.position = 'relative';
-
-  var btn = document.createElement('button');
-  btn.id = 'audioBtn';
-  btn.title = 'Piste audio';
-  btn.textContent = '🎧 Audio';
-  wrap.appendChild(btn);
-
-  var menu = document.createElement('div');
-  menu.id = 'audioMenu';
-  menu.style.display = 'none';
-  wrap.appendChild(menu);
-
-  actions.appendChild(wrap);
-
-  btn.addEventListener('click', function(e){
-    e.stopPropagation();
-    menu.style.display = (menu.style.display === 'none' ? 'block' : 'none');
-    if (menu.style.display === 'block') renderAudioMenu();
-  });
-
-  document.addEventListener('click', function(e){
-    if (!wrap.contains(e.target)) menu.style.display = 'none';
-  });
-})();
-
-function renderAudioMenu(){
-  var menu = document.getElementById('audioMenu');
-  if (!menu) return;
-
-  var tracks = listAudioTracks();
-  if (!tracks.length) {
-    menu.innerHTML = '<div class="am-empty">Aucune piste détectée</div>';
-    return;
-  }
-
-  var html = [];
-  for (var i=0; i<tracks.length; i++){
-    var t = tracks[i];
-    var cls = t.selected ? 'am-item sel' : 'am-item';
-    var langHtml = t.lang ? (' <span class="am-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
-    html.push(
-      '<button class="' + cls + '" data-i="' + i + '">' +
-      escapeHtml(t.label) + langHtml +
-      '</button>'
-    );
-  }
-  menu.innerHTML = html.join('');
-
-  var items = menu.querySelectorAll('.am-item');
-  for (var j=0; j<items.length; j++){
-    (function(idx){
-      items[idx].onclick = function(ev){
-        ev.stopPropagation();
-        var chosen = tracks[idx];
-        selectAudioTrack(chosen);
-        menu.style.display = 'none';
-      };
-    })(j);
-  }
-}
-
-function highlightCurrentAudio(){
-  var menu = document.getElementById('audioMenu');
-  if (!menu) return;
-  var tracks = listAudioTracks();
-  var items = menu.querySelectorAll('.am-item');
-  for (var i=0; i<items.length; i++){
-    var sel = !!(tracks[i] && tracks[i].selected);
-    if (sel) items[i].classList.add('sel'); else items[i].classList.remove('sel');
-  }
-}
-
-/* 3) Remplacements sûrs de playHls / playDash (écrasent les versions plus haut) */
-function playHls(url){
-  try { video.style.display = 'block'; } catch(e){}
-  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
-
-  try {
-    if (window.Hls && window.Hls.isSupported && window.Hls.isSupported()) {
-      if (typeof currentHls !== 'undefined' && currentHls && currentHls.destroy) { try { currentHls.destroy(); } catch(e){} }
-      var hls = new window.Hls();
-      currentHls = hls;
-      try {
-        hls.on(window.Hls.Events.ERROR, function(evt, data){
-          if (data && data.fatal) { try { hls.destroy(); } catch(e){} currentHls = null; video.src = url; }
-        });
-        hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ try { renderAudioMenu(); } catch(e){} });
-        hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, function(){ try { highlightCurrentAudio(); } catch(e){} });
-      } catch(e){}
-      hls.loadSource(url);
-      hls.attachMedia(video);
-    } else {
-      video.src = url; // Safari natif
-      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(e){} }, { once:true });
-    }
-  } catch (e) {
-    try { console.error('[playHls]', e); } catch(_){}
-    try { video.src = url; } catch(_){}
-  }
-  try { updateNowBar(undefined, url); } catch(_){}
-}
-
-function playDash(url){
-  try { video.style.display = 'block'; } catch(e){}
-  try { if (typeof setPlaying === 'function') setPlaying(true); } catch(e){}
-
-  try {
-    var DASH = (window.dashjs && window.dashjs.MediaPlayer) ? window.dashjs.MediaPlayer : null;
-    if (DASH && typeof DASH.create === 'function') {
-      if (typeof currentDash !== 'undefined' && currentDash && currentDash.reset) { try { currentDash.reset(); } catch(e){} }
-      var p = DASH.create();
-      currentDash = p;
-      p.initialize(video, url, true);
-      try {
-        p.on(window.dashjs.MediaPlayer.events.STREAM_INITIALIZED, function(){ try { renderAudioMenu(); } catch(e){} });
-        p.on(window.dashjs.MediaPlayer.events.AUDIO_TRACK_CHANGED, function(){ try { highlightCurrentAudio(); } catch(e){} });
-      } catch(e){}
-    } else {
-      video.src = url; // fallback
-      video.addEventListener('loadedmetadata', function(){ try { renderAudioMenu(); } catch(e){} }, { once:true });
-    }
-  } catch(e){
-    try { console.error('[playDash]', e); } catch(_){}
-    try { video.src = url; } catch(_){}
-  }
-  try { updateNowBar(undefined, url); } catch(_){}
-}
-
-/* 4) Bonus: s'assurer que resetPlayers détruit HLS/DASH */
-if (typeof resetPlayers === 'function') {
-  var __orig_resetPlayers__ = resetPlayers;
-  resetPlayers = function(){
-    try { if (typeof currentHls !== 'undefined' && currentHls && currentHls.destroy) { currentHls.destroy(); currentHls = null; } } catch(e){}
-    try { if (typeof currentDash !== 'undefined' && currentDash && currentDash.reset) { currentDash.reset(); currentDash = null; } } catch(e){}
-    try { __orig_resetPlayers__.call(this); } catch(e){}
-  };
-}
-/* ===== End Audio Tracks SAFE v2 ===== */
 /* ===== Audio Tracks SAFE v3 — coller tout en bas, remplace les versions précédentes ===== */
 
 /* Globals si absents */
@@ -1139,5 +762,4 @@ function highlightCurrentAudio(){
   }
 }
 /* ===== /Audio Tracks SAFE v3 ===== */
-
 
