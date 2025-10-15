@@ -583,4 +583,39 @@ button, input, select { font-size: 14px; height: 36px; padding: 0 12px; border-r
 header .header-logo, header .logo img {
   width: auto; height: 40px; max-height: 44px; max-width: 60px; object-fit: contain;
 }
+/* === NOWBAR: remettre le titre à gauche et les actions à droite === */
+#nowBar{
+  position: fixed;        /* si déjà fixé, ne change rien */
+  left: 12px; right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  font-size: 14px !important;        /* annule footer{font-size:0} si présent */
+  pointer-events: none;               /* on laisse passer… */
+  width: auto;                        /* évite rétrécissement */
+}
+#nowTitle{
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+#nowBar .nowbar-actions{
+  display: flex !important;
+  gap: 8px !important;
+  margin-left: auto !important;       /* pousse à droite */
+  flex: 0 0 auto !important;
+  pointer-events: auto;               /* …mais les boutons restent cliquables */
+}
+
+/* Sécurité: si quelqu’un a mis text-align:left partout */
+#nowBar, #nowBar .nowbar-actions { text-align: initial !important; }
+
+/* Boutons compacts et uniformes */
+#nowBar button, #nowBar a{
+  min-width: 38px; height: 34px;
+}
 
