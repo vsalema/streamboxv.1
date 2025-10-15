@@ -197,3 +197,30 @@ main { padding-bottom: 80px; overflow: hidden; }
   bottom: 20px; background: rgba(0,0,0,.85); color:#fff;
   padding: 10px 14px; border-radius: 10px; z-index: 10000;
 }
+/* === Crystal — variante claire === */
+body.light {
+  --bg-crystal: radial-gradient(1200px 800px at 10% -10%, #f7fbff 0%, #ecf3ff 45%, #e9f0ff 100%);
+  --glass-bg: rgba(255,255,255,0.55);
+  --glass-stroke: rgba(0,0,0,0.08);
+  --glass-hover: rgba(255,255,255,0.7);
+  --glass-strong: rgba(255,255,255,0.75);
+  --blur: 14px;
+
+  --accent: #2563eb;
+  --accent-2: #3b82f6;
+  --accent-glow: 0 0 18px rgba(37,99,235,.35);
+
+  --text-strong: #0f172a;
+  --text-soft: #334155;
+  --stroke: 1px solid var(--glass-stroke);
+}
+
+/* Ajuste vite le player/nowBar pour contraste en clair */
+body.light #playerSection {
+  background: rgba(255,255,255,0.65) !important;
+}
+body.light #nowBar {
+  background: rgba(255,255,255,0.55) !important;
+  color: var(--text-strong) !important;
+}
+
