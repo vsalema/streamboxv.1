@@ -1160,4 +1160,52 @@ function highlightCurrentSubs(){
   }
 })();
 
+// === NowBar: un seul bouton FS vidéo + bouton FS page =====================
+(() => {
+  const actions = document.querySelector('#nowBar .nowbar-actions') || document.getElementById('nowBar');
+  if (!actions) return;
+
+  // 1) Nettoyage : vire les doublons FS sans id (créés par d'anciens patchs)
+  const btns = actions.querySelectorAll('button, a');
+  btns.forEach(b => {
+    const t = (b.textContent || '').trim();
+    const hasId = !!b.id;
+    const looksFS = t === '⤢' || t === '⤡' || /plein\s*écran/i.test(b.title || '');
+    if (!hasId && looksFS) b.remove();
+  });
+
+  // 2) Ajoute le bouton "Page entière" si absent
+  if (!document.getElementById('fsPageBtn')) {
+    const fsPageBtn = document.createElement('button');
+    fsPageBtn.id = 'fsPageBtn';
+    fsPageBtn.title = 'Plein écran (page entière)';
+    fsPageBtn.textContent = '🗖'; // entrer
+    fsPageBtn.style.minWidth = '38px';
+    actions.appendChild(fsPageBtn);
+
+    const rootEl = document.documentElement;
+    const isPageFS = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+    const setLabel = () => {
+      fsPageBtn.textContent = isPageFS() ? '🗗' : '🗖'; // 🗗 = quitter
+      fsPageBtn.title = isPageFS() ? 'Quitter plein écran (page)' : 'Plein écran (page entière)';
+    };
+
+    const togglePageFS = async () => {
+      try {
+        if (isPageFS()) {
+          await (document.exitFullscreen?.() || document.webkitExitFullscreen?.());
+        } else {
+          await (rootEl.requestFullscreen?.() || rootEl.webkitRequestFullscreen?.());
+        }
+      } catch (e) { console.warn('[page fullscreen]', e); }
+      setLabel();
+    };
+
+    fsPageBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePageFS(); });
+    document.addEventListener('fullscreenchange', setLabel);
+    document.addEventListener('webkitfullscreenchange', setLabel);
+    setLabel();
+  }
+})();
 
