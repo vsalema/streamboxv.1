@@ -456,6 +456,36 @@ function clearHistory(){
   }
 }
 
+// === Thème clair/sombre — init SAFE (anti-conflit) =======================
+(() => {
+  // Empêche une double initialisation si le code est chargé 2x
+  if (window.__IPTV_THEME_INIT__) return;
+  window.__IPTV_THEME_INIT__ = true;
+
+  const LSKEY = 'theme';
+  const btn = document.getElementById('themeToggle');
+
+  const apply = (t) => {
+    const isLight = t === 'light';
+    document.body.classList.toggle('light', isLight);
+    try { localStorage.setItem(LSKEY, isLight ? 'light' : 'dark'); } catch {}
+    if (btn) btn.textContent = isLight ? '☀️' : '🌙';
+  };
+
+  // init: préférence sauvegardée > préférence système > sombre
+  let t = 'dark';
+  try {
+    const saved = localStorage.getItem(LSKEY);
+    if (saved === 'light' || saved === 'dark') t = saved;
+    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+  } catch {}
+  apply(t);
+
+  // handler unique (écrase les anciens avec onclick)
+  if (btn) {
+    btn.onclick = () => apply(document.body.classList.contains('light') ? 'dark' : 'light');
+  }
+})();
 
 
 
