@@ -715,4 +715,41 @@ aside input#searchInput{
   font-size: 14px !important;
   box-sizing: border-box !important;
 }
+/* Le conteneur aside ne doit rien clipser horizontalement */
+aside { min-width: 0 !important; }
+
+/* Barre d'onglets compacte, scroll horizontal si ça déborde */
+.tabs{
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  flex-wrap: nowrap !important;        /* reste sur une seule ligne */
+  overflow-x: auto !important;         /* permet de voir le 4e si trop long */
+  overflow-y: hidden !important;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.tabs::-webkit-scrollbar { display: none; } /* masque la barre sur WebKit */
+
+/* Les boutons d’onglets ne s’étirent pas, ne se compressent pas */
+.tabs > button{
+  flex: 0 0 auto !important;
+  height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;      /* pas de retour à la ligne dans le bouton */
+}
+
+/* Si tu gardes "Vérifier les liens" dans la ligne des onglets */
+#btnVerifyLinks{
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+}
 
