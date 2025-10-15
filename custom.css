@@ -117,4 +117,43 @@ main {
   bottom: 20px; background: rgba(0,0,0,.85); color:#fff;
   padding: 10px 14px; border-radius: 10px; z-index: 10000;
 }
+/* Bar catégories compactes (1 ligne, scroll horizontal) */
+#catBar {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: nowrap !important;
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE/Edge legacy */
+}
+#catBar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+#catBar .cat {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  flex: 0 0 auto !important;       /* ne s’étire pas */
+}
+#catBar .cat.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+/* Ombres de bord pour indiquer qu’on peut scroller */
+#catWrap {
+  position: relative;
+}
+#catWrap::before, #catWrap::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; width: 24px; pointer-events: none;
+}
+#catWrap::before { left: 0; background: linear-gradient(to right, var(--bg-alt), transparent); }
+#catWrap::after  { right:0; background: linear-gradient(to left,  var(--bg-alt), transparent); }
 
