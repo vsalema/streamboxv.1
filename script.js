@@ -656,14 +656,22 @@ function selectAudioTrack(track){
 function renderAudioMenu(){
   const menu = document.getElementById('audioMenu');
   if (!menu) return;
+
   const tracks = listAudioTracks();
   if (!tracks.length) {
-    menu.innerHTML = `<div class="am-empty">Aucune piste détectée</div>`;
+    menu.innerHTML = '<div class="am-empty">Aucune piste détectée</div>';
     return;
   }
-  menu.innerHTML = tracks.map((t, i) =>
-    `<button class="am-item ${t.selected?'sel':''}" data-i="${i}">${escapeHtml(t.label)}${t.lang?` <span class="am-lang">(${t.lang})</span>`:''}</button>`
-  ).join('');
+
+  // Pas de backticks imbriqués : on concatène proprement
+  menu.innerHTML = tracks.map((t, i) => {
+    const langHtml = t.lang ? (' <span class="am-lang">(' + escapeHtml(t.lang) + ')</span>') : '';
+    return (
+      '<button class="am-item ' + (t.selected ? 'sel' : '') + '" data-i="' + i + '">' +
+        escapeHtml(t.label) + langHtml +
+      '</button>'
+    );
+  }).join('');
 
   menu.querySelectorAll('.am-item').forEach((b, i)=>{
     b.onclick = (e) => {
@@ -674,6 +682,7 @@ function renderAudioMenu(){
     };
   });
 }
+
 
 function highlightCurrentAudio(){
   const menu = document.getElementById('audioMenu');
