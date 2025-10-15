@@ -150,309 +150,72 @@ aside input#searchInput {
   font-size: 1.1em;
 }
 
-/* Player section full area */
+/* === PLAYER — rendu unifié partout (Chaînes, Favoris, etc.) === */
 #playerSection {
   position: relative;
-  background: black;
+  display: block;
+  background: #000;
+  overflow: hidden;                 /* coupe tout débordement */
+}
+
+/* Tous les médias occupent EXACTEMENT le cadre du player */
+#playerSection > video,
+#playerSection > iframe,
+#playerSection > audio {
+  position: absolute;
+  inset: 0;                         /* top/right/bottom/left: 0 */
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: none;                    /* le JS met "block" sur le média actif */
+  background: #000;
+  object-fit: contain;              /* pas de crop */
+  border: 0;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+/* Message d’attente : hors layout et caché dès que ça lit */
+#noSource {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 140px); /* header+footer approx */
+  padding: 12px;
+  z-index: 0;                       /* sous le média */
+  pointer-events: none;
+  opacity: .85;
 }
-video, iframe, audio {
-  width: 100%;
-  height: 100%;
-  display: none;
-  background: black;
-  object-fit: contain;
-}
-#noSource {
-  opacity: 0.7;
-  font-size: 1.2em;
-}
+#playerSection.playing #noSource { display: none; }
 
+/* === NOW BAR — en bas de page, ne masque jamais les contrôles === */
 footer {
-  text-align: center;
-  padding: 8px;
-  background: var(--bg-alt);
-  color: var(--text);
-  border-top: 1px solid var(--border);
+  height: 64px;                     /* réserve l’espace bas */
+  font-size: 0;
+  border-top: none;
+}
+#nowBar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 1000;
+  pointer-events: none;             /* laisse passer les clics vers le player */
+}
+#nowBar .nowbar-actions > *,
+#nowBar a,
+#nowBar button { pointer-events: auto; }
+
+/* Layout global: évite les décalages et chevauchements */
+main {
+  overflow: hidden;                 /* évite glitch de grille */
+  padding-bottom: 80px;             /* espace pour la nowBar */
 }
 
+/* Responsive */
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
   aside { height: 260px; }
 }
-
-/* --- Splash screen --- */
-#splash {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  transition: opacity 0.6s ease;
-}
-#splash.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-.splash-logo-img {
-  width: 140px;
-  height: auto;
-  animation: pulse 2s infinite ease-in-out;
-  filter: drop-shadow(0 0 10px var(--accent));
-}
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.08); opacity: 1; }
-}
-.splash-bar {
-  width: 160px;
-  height: 6px;
-  background: var(--border);
-  border-radius: 10px;
-  margin-top: 20px;
-  overflow: hidden;
-}
-.splash-progress {
-  width: 0;
-  height: 100%;
-  background: var(--accent);
-  border-radius: 10px;
-  animation: loadbar 2.0s linear forwards;
-}
-@keyframes loadbar {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-/* --- Equalizer bars (audio reactive) --- */
-.eq {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 3px;
-  width: 24px;
-  height: 20px;
-  margin-left: 6px;
-}
-.eq div {
-  width: 3px;
-  background: var(--accent);
-  border-radius: 2px;
-  height: 10%;
-  transition: height 0.08s linear;
-}
-.eq.hidden { display: none; }
-
-/* Now bar */
-.nowbar {
-  position: absolute; left: 12px; right: 12px; bottom: 12px;
-  display: flex; justify-content: space-between; align-items: center;
-  background: rgba(0,0,0,.45); color: #fff; padding: 8px 10px; border-radius: 10px;
-  font-size: .95em; backdrop-filter: blur(4px);
-}
-.nowbar .nowbar-actions { display: flex; gap: 8px; }
-.nowbar a, .nowbar button { background: rgba(255,255,255,.15); color: #fff; border: 0; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
-.nowbar a:hover, .nowbar button:hover { background: rgba(255,255,255,.25); }
-
-/* Toast */
-.toast { position: fixed; left:50%; transform: translateX(-50%); bottom: 20px;
-  background: rgba(0,0,0,.8); color:#fff; padding:10px 14px; border-radius:10px; z-index:10000; }
-/* --- Force la fermeture automatique du splash même si JS plante --- */
-#splash {
-  opacity: 1;
-  pointer-events: auto;
-  /* Attend 2.2s puis cache le splash en CSS (aucun JS requis) */
-  animation: splashhide 0.001s step-end forwards;
-  animation-delay: 2.2s;
-}
-
-@keyframes splashhide {
-  to {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-  }
-}
-/* --- Player : remplir tout l'espace, sans recadrage bizarre --- */
-#playerSection {
-  position: relative;
-  display: block;              /* on enlève le flex-centering */
-  background: #000;
-}
-
-/* Les médias occupent 100% de la zone player, par-dessus le fond */
-#playerSection > video,
-#playerSection > iframe,
-#playerSection > audio {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;          /* pas de zoom/cropping */
-  background: #000;
-  display: none;                /* le JS met 'block' sur celui qui joue */
-  box-sizing: border-box;       /* évite les barres résiduelles */
-  z-index: 1;
-}
-
-/* Le message d'attente n'occupe pas le layout et se centre visuellement */
-#noSource {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  z-index: 1;
-}
-
-/* Barre "maintenant" au-dessus, mais sans bloquer les clics sur les contrôles */
-#nowBar {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;                 /* si ça masque encore, passe à 64px */
-  z-index: 3;
-  pointer-events: none;         /* ne bloque pas les clics sur le player */
-}
-#nowBar .nowbar-actions > *,
-#nowBar a,
-#nowBar button {
-  pointer-events: auto;         /* les boutons restent cliquables */
-}
-
-/* Option : si la barre masque encore les contrôles, décale-la un peu plus */
-@media (max-width: 900px) {
-  #nowBar { bottom: 64px; }     /* ↑ augmente cette valeur si besoin */
-}
-/* --- Place la nowBar en bas, là où était le footer --- */
-
-/* Le footer devient juste un espace réservé (on masque son texte) */
-footer {
-  height: 64px;            /* réserve l'espace bas */
-  font-size: 0;            /* masque le texte "IPTV Player Web+ ..." */
-  border-top: none;
-}
-
-/* NowBar fixe en bas, hors du player */
-#nowBar {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: max(12px, env(safe-area-inset-bottom)); /* safe area mobiles */
-  z-index: 1000;
-  pointer-events: none;     /* ne bloque jamais les contrôles du player */
-}
-#nowBar .nowbar-actions > *,
-#nowBar a,
-#nowBar button {
-  pointer-events: auto;     /* les boutons restent cliquables */
-}
-
-/* Évite que la nowBar chevauche le contenu */
-main { padding-bottom: 76px; }  /* ~ hauteur footer + marge */
-
-/* --- Layout player robuste, même quand on lance depuis "Chaînes" --- */
-#playerSection {
-  position: relative;
-  display: block;           /* pas de flex-centering */
-  background: #000;
-}
-#playerSection > video,
-#playerSection > iframe,
-#playerSection > audio {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;      /* pas de cropping */
-  background: #000;
-  display: none;            /* le JS met 'block' sur le media actif */
-  box-sizing: border-box;
-  z-index: 1;
-}
-#noSource {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  z-index: 1;
-}
-/* --- Player plein cadre, quoi qu'il arrive (priorité haute) --- */
-#playerSection {
-  position: relative !important;
-  display: block !important;          /* pas de flex-centering */
-  background: #000 !important;
-}
-
-/* Tous les médias occupent 100% de #playerSection */
-#playerSection > video,
-#playerSection > iframe,
-#playerSection > audio {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;     /* pas de zoom/cropping */
-  background: #000 !important;
-  display: none;                      /* le JS met 'block' sur le media actif */
-  box-sizing: border-box;
-  z-index: 1;
-}
-
-/* Le message d'attente n'occupe pas le layout */
-#noSource {
-  position: absolute !important;
-  inset: 0 !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  z-index: 1;
-}
-/* --- Player plein cadre + message d'attente hors layout --- */
-#playerSection {
-  position: relative !important;
-  display: block !important;
-  background: #000 !important;
-}
-
-/* Les médias remplissent la zone player */
-#videoPlayer,
-#ytPlayer,
-#audioPlayer {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  background: #000 !important;
-  display: none;              /* JS mettra 'block' sur le média actif */
-  z-index: 1;
-}
-
-/* Le message d'attente ne pousse rien dans la mise en page */
-#noSource {
-  position: absolute !important;
-  inset: 0 !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  z-index: 0;                 /* sous le média */
-  opacity: .8;
-}
-
-/* Dès qu'on lit quelque chose, on coupe le message */
-#playerSection.playing #noSource {
-  display: none !important;
-}
-
