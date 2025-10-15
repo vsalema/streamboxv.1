@@ -74,14 +74,21 @@ main {
   pointer-events: none;
 }
 #nowBar .nowbar-actions > *, #nowBar a, #nowBar button { pointer-events: auto; }
-/* Splash: auto-hide même si le JS plante */
+/* Splash: auto-hide garanti */
 #splash {
-  position: fixed; inset: 0; z-index: 9999;
-  opacity: 1; pointer-events: auto;
-  animation: splash_auto_hide 0.001s step-end forwards;
-  animation-delay: 2.2s;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  animation: splash_auto_hide 0.001s step-end forwards !important;
+  animation-delay: 2.2s !important;
 }
-#splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+#splash.hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 @keyframes splash_auto_hide {
   to { opacity: 0; visibility: hidden; pointer-events: none; }
 }
