@@ -8,19 +8,6 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="custom.crystal.css?v=2">
  <noscript><style>#splash{display:none!important}</style></noscript>
-<style>
- body.sb-dark {
-  color: var(--text-light);
-  background: linear-gradient(135deg,#0b0f1a,#111827,#1e293b);
-    background-size: auto;
-  background-size: 400% 400%;
-  animation: gradientFlow 30s ease infinite;
-}
-  main {
-  padding-bottom: 16px;
-  overflow: hidden;
-}
-</style>
 </head>
 <body class="dark">
   <!-- Splash Screen -->
@@ -68,10 +55,6 @@
       <audio id="audioPlayer" controls></audio>
       <div id="noSource">Colle une URL ou choisis une liste pour commencer 🎬</div>
       <div id="nowBar" class="nowbar">
-  <div id="nowLeft">
-    <button id="prevBtn" class="navBtn" title="Chaîne précédente">⟨</button>
-    <button id="nextBtn" class="navBtn" title="Chaîne suivante">⟩</button>
-  </div>
   <span id="nowTitle">Titre de la chaîne très très long qui doit s’ellipser…</span>
   <div class="nowbar-actions">
     <button id="copyBtn">📋</button>
@@ -90,4 +73,3 @@
   <script src="script.js?v=fix1" defer></script>
 </body>
 </html>
-
