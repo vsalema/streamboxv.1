@@ -1035,3 +1035,32 @@ aside .tabs > button.active{
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* NowBar avec zone gauche (boutons) + titre + actions */
+#nowBar{
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important; /* [gauche] [titre] [actions] */
+  column-gap: 8px !important;
+}
+#nowLeft{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto; /* cliquable (nowBar a pointer-events:none) */
+}
+#nowLeft .navBtn{
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+#nowLeft .navBtn:hover{
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
