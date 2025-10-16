@@ -896,3 +896,79 @@ aside .tabs > button.active{
   }
 }
 
+// === Tabs width fixer (force-inline + responsive) =========================
+(function fixTabsWidth(){
+  function applyWidths() {
+    var tabs = document.querySelector('.tabs');
+    if (!tabs) return;
+
+    // 1) sortir le bouton "Vérifier les liens" de .tabs s'il s'y trouve
+    var verify = document.getElementById('btnVerifyLinks');
+    if (verify && verify.parentElement === tabs) {
+      tabs.insertAdjacentElement('afterend', verify);
+      verify.style.display = 'block';
+      verify.style.margin = '8px auto 6px';
+    }
+
+    // 2) normaliser le conteneur .tabs (inline styles > CSS externes)
+    tabs.style.display = 'flex';
+    tabs.style.flexWrap = 'nowrap';
+    tabs.style.alignItems = 'center';
+    tabs.style.gap = '6px';
+    tabs.style.padding = '6px 8px';
+    tabs.style.overflowX = 'auto';
+    tabs.style.overflowY = 'hidden';
+
+    // 3) calcule la largeur selon le viewport
+    var w = 81;
+    var vw = (window.innerWidth || document.documentElement.clientWidth || 1024);
+    if (vw <= 900) w = 74;
+    if (vw <= 600) w = 68;
+    if (vw <= 420) w = 64;
+
+    // 4) applique aux 4 onglets (tous les buttons dans .tabs)
+    var btns = Array.prototype.slice.call(tabs.querySelectorAll('button'));
+    btns.forEach(function(b){
+      // ignorer un éventuel bouton parasite qui n’est pas un onglet
+      if (b.id === 'btnVerifyLinks') return;
+      b.style.flex = '0 0 ' + w + 'px';
+      b.style.width = w + 'px';
+      b.style.minWidth = w + 'px';
+      b.style.maxWidth = w + 'px';
+      b.style.height = '30px';
+      b.style.padding = '0 6px';
+      b.style.fontSize = (w <= 64 ? '10.5px' : (w <= 68 ? '11px' : '12px'));
+      b.style.lineHeight = '1';
+      b.style.borderRadius = '8px';
+      b.style.whiteSpace = 'nowrap';
+      b.style.overflow = 'hidden';
+      b.style.textOverflow = 'ellipsis';
+      b.style.boxSizing = 'border-box';
+    });
+  }
+
+  // 1ère application
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyWidths);
+  } else {
+    applyWidths();
+  }
+
+  // réapplique quand on redimensionne
+  window.addEventListener('resize', function(){ applyWidths(); });
+
+  // utilitaire global si tu veux relancer après un rerender
+  window.fixTabsWidth = applyWidths;
+
+  // molette → scroll horizontal
+  var tabs = document.querySelector('.tabs');
+  if (tabs && !tabs.__wheelBound) {
+    tabs.__wheelBound = true;
+    tabs.addEventListener('wheel', function(e){
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        tabs.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive:false });
+  }
+})();
