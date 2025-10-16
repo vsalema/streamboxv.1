@@ -996,3 +996,42 @@ aside .tabs > button.active{
   transform: translateY(0) !important;
   box-shadow: none !important;
 }
+/* === Fond dégradé animé (Crystal) === */
+:root{
+  /* couleur du texte claire utilisée sur fond sombre */
+  --text-light: #f2f5fa;
+}
+
+/* Body: fond animé + couleur de texte */
+body{
+  color: var(--text-light) !important;
+  background: linear-gradient(135deg, #0b0f1a, #111827, #1e293b) fixed !important;
+  background-size: 400% 400% !important;
+  animation: gradientFlow 30s ease infinite !important;
+}
+
+/* Assure aussi le fond sur les zones principales */
+html, body{
+  min-height: 100%;
+  background-attachment: fixed;
+}
+
+/* L’overlay éventuel ne doit pas masquer le gradient */
+main, header, footer, aside{
+  background-color: transparent !important;
+}
+
+/* Animation du gradient */
+@keyframes gradientFlow{
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* (Optionnel) Mode clair : fond plus doux */
+body.light{
+  color: #0b0f1a !important; /* texte foncé */
+  background: linear-gradient(135deg, #eef2ff, #e2e8f0, #f8fafc) fixed !important;
+  background-size: 400% 400% !important;
+  animation: gradientFlow 30s ease infinite !important;
+}
