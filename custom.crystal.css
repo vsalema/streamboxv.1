@@ -972,3 +972,27 @@ aside .tabs > button.active{
     }, { passive:false });
   }
 })();
+/* Vérifier les liens — style Crystal (même look que les chips catégories) */
+#btnVerifyLinks{
+  display: block !important;
+  margin: 8px auto 6px !important;     /* centré sous les onglets */
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  transition: background .15s ease, color .15s ease, border-color .15s ease !important;
+}
+#btnVerifyLinks:hover{
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+#btnVerifyLinks:active{
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
