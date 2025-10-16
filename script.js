@@ -1831,4 +1831,144 @@ function pingVisibleList(concurrency){
   setTimeout(kick, 150);
   setTimeout(kick, 600);
 })();
+// --- Sécurité & logs ---
+// Schémas autorisés pour les médias
+const SAFE_SCHEMES = ['http:', 'https:', 'blob:', 'data:'];
+
+// Validation basique d'URL (bloque javascript:, data:text/html, file:, etc.)
+function isSafeMediaUrl(u){
+  try {
+    const url = new URL(u, location.href);
+    if (!SAFE_SCHEMES.includes(url.protocol)) return false;
+    // bloque data: text/html (XSS) – ne permet que data:audio/video/image (si tu veux)
+    if (url.protocol === 'data:') {
+      const lower = u.slice(0, 64).toLowerCase();
+      if (lower.includes('text/html')) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
+// Sanitize texte UI (déjà présent ? garde la version la plus stricte)
+function escapeHtml(s){
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+// Journal circulaire (évite les logs infinis)
+const LOG_MAX = 400;
+let LOGS = [];
+function logEvent(type, msg, extra){
+  const t = new Date().toISOString();
+  LOGS.push({ t, type, msg: String(msg||''), extra: extra||null, ua: navigator.userAgent });
+  if (LOGS.length > LOG_MAX) LOGS.splice(0, LOGS.length - LOG_MAX);
+  if (window.DEBUG_LOG) console.debug('[LOG]', type, msg, extra);
+}
+
+// Hook erreurs JS
+window.addEventListener('error', (e)=>{
+  logEvent('js-error', e.message || 'Error', { filename: e.filename, lineno: e.lineno, colno: e.colno, error: String(e.error||'') });
+});
+window.addEventListener('unhandledrejection', (e)=>{
+  logEvent('promise-rejection', e.reason ? (e.reason.message||String(e.reason)) : 'unhandledrejection');
+});
+// AU DÉBUT de playByType(url) :
+if (!isSafeMediaUrl(url)) {
+  logEvent('blocked-url', 'URL refusée (schéma non autorisé)', { url });
+  try { toast('URL non autorisée.'); } catch {}
+  return;
+}
+// HEAD ping (vérifie que l’URL répond) – CORS-dependent
+async function safeHead(url, timeoutMs=5000){
+  if (!isSafeMediaUrl(url)) return { ok:false, status:0, blocked:true };
+  const ctrl = new AbortController();
+  const to = setTimeout(()=>ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { method:'HEAD', mode:'no-cors', signal: ctrl.signal });
+    clearTimeout(to);
+    // no-cors renvoie opaque -> on ne connaît pas status, on note juste "ok?"
+    logEvent('head', 'HEAD ping terminé', { url, ok: true, type: res.type });
+    return { ok: true, status: res.status||0, opaque: res.type==='opaque' };
+  } catch (e){
+    clearTimeout(to);
+    logEvent('head-fail', 'HEAD ping échec', { url, err: String(e) });
+    return { ok:false, status:0, error: String(e) };
+  }
+}
+
+// Retry exponentiel générique
+async function withRetries(fn, { tries=3, baseDelay=400 } = {}){
+  let lastErr;
+  for (let i=0; i<tries; i++){
+    try { return await fn(); }
+    catch(e){
+      lastErr = e;
+      const d = baseDelay * Math.pow(2, i);
+      await new Promise(r => setTimeout(r, d));
+    }
+  }
+  throw lastErr;
+}
+// Exemple MP4
+try {
+  v.src = url;
+  v.style.display = 'block';
+  v.muted = true;
+  const p = v.play();
+  if (p && p.catch) p.catch(err => logEvent('video-play-catch', 'Play() catch', String(err)));
+  logEvent('play', 'MP4 start', { url });
+} catch (e) {
+  logEvent('play-fail', 'MP4 error', { url, err: String(e) });
+  try { toast('Erreur de lecture MP4.'); } catch {}
+}
+
+// Exemple HLS
+if (window.Hls && window.Hls.isSupported()){
+  try {
+    const hls = new Hls({ enableWorker:true });
+    window.currentHls = hls;
+    hls.on(Hls.Events.ERROR, (ev,data)=>{
+      logEvent('hls-error', data.details || 'HLS error', data);
+      // soft-retry sur NETWORK_ERROR
+      if (data && data.fatal && data.type === 'networkError'){
+        try { hls.startLoad(); } catch {}
+      }
+    });
+    hls.attachMedia(v);
+    hls.on(Hls.Events.MEDIA_ATTACHED, ()=> hls.loadSource(url));
+    logEvent('play', 'HLS start', { url });
+  } catch (e){
+    logEvent('play-fail', 'HLS init error', { url, err: String(e) });
+  }
+} else {
+  // Safari natif
+  try { v.src = url; v.style.display='block'; v.muted=true; v.play().catch(()=>{}); logEvent('play','HLS native', { url }); }
+  catch(e){ logEvent('play-fail','HLS native err',{ url, err:String(e)}); }
+}
+(function addCopyLogsBtn(){
+  const bar = document.getElementById('nowBar');
+  if (!bar) return;
+  let actions = bar.querySelector('.nowbar-actions');
+  if (!actions) { actions = document.createElement('div'); actions.className='nowbar-actions'; bar.appendChild(actions); }
+  if (document.getElementById('copyLogsBtn')) return;
+
+  const b = document.createElement('button');
+  b.id = 'copyLogsBtn';
+  b.title = 'Copier les logs';
+  b.textContent = '🧾';
+  b.onclick = async (e)=>{
+    e.stopPropagation();
+    try {
+      const payload = JSON.stringify({ when: new Date().toISOString(), logs: LOGS }, null, 2);
+      await navigator.clipboard.writeText(payload);
+      logEvent('logs-copied', 'Logs copiés');
+      try { toast('Logs copiés dans le presse-papiers.'); } catch {}
+    } catch (err){
+      logEvent('logs-copy-fail', 'Clipboard error', String(err));
+    }
+  };
+  actions.appendChild(b);
+})();
+// Active le mode verbeux : window.DEBUG_LOG = true
+if (location.search.includes('debug=1')) window.DEBUG_LOG = true;
 
