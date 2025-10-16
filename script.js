@@ -319,7 +319,8 @@ bar.className = 'history-toolbar';
       try { resetPlayers(); } catch {}
       if (noSource) noSource.style.display = 'none';
       playByType(item.url);
-     // mémorise la position dans la liste visible
+     try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item.url); } catch(_){}
+      // mémorise la position dans la liste visible
       try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item.url || url); } catch(_){}
      updateNowBar(item.name || item.url, item.url);
       try {
