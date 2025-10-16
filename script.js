@@ -140,10 +140,7 @@ function playYouTube(url){
   iframe.src = `https://www.youtube.com/embed/${extractYT(url)}?autoplay=1`;
   updateNowBar(undefined, url);
 }
-function playByType(url)
-try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item?.url || url); } catch {}
-
-{
+function playByType(url){
   const t = classify(url);
   if (t==='youtube') return playYouTube(url);
   if (t==='mp4') return playVideo(url);
@@ -1608,76 +1605,3 @@ function pingVisibleList(concurrency){
   }
 })();
 
-
-
-
-/* === Prev/Next minimal — safe attach (no overrides) === */
-(function prevNextMinimal(){
-  function rebuildCurrentList(){
-    const items = Array.from(document.querySelectorAll('#list .item'));
-    window.currentList = items.map(el => ({
-      url: el.dataset.url || '',
-      name: el.dataset.name || (el.querySelector('.name')?.textContent?.trim() || '')
-    })).filter(x => x.url);
-  }
-
-  if (typeof window.playChannelAt !== 'function') {
-    window.playChannelAt = function(i){
-      if (!window.currentList || !window.currentList.length) rebuildCurrentList();
-      const n = window.currentList.length; if (!n) return;
-      if (i < 0) i = n - 1; if (i >= n) i = 0;
-      window.currentIndex = i;
-      const item = window.currentList[i]; if (!item) return;
-
-      const ps = document.getElementById('playerSection');
-      const noSource = document.getElementById('noSource');
-      try { resetPlayers(); } catch{}
-      if (noSource) noSource.style.display = 'none';
-      if (ps) ps.classList.add('playing');
-
-      playByType(item.url);
-      try { updateNowBar(item.name || item.url, item.url); } catch{}
-      try { if (typeof addHistory === 'function') addHistory(item.url); } catch{}
-
-      try {
-        const v = document.getElementById('videoPlayer');
-        if (v && v.style.display === 'block') {
-          v.muted = true;
-          const p = v.play();
-          if (p && p.catch) p.catch(()=>{});
-        }
-      } catch{}
-    };
-  }
-  if (typeof window.prevChannel !== 'function') window.prevChannel = ()=> window.playChannelAt((window.currentIndex|0) - 1);
-  if (typeof window.nextChannel !== 'function') window.nextChannel = ()=> window.playChannelAt((window.currentIndex|0) + 1);
-
-  if (!window.__setCurrentFromClick) {
-    window.__setCurrentFromClick = function(url){
-      rebuildCurrentList();
-      const idx = window.currentList.findIndex(x => x.url === url);
-      window.currentIndex = (idx >= 0 ? idx : 0);
-    };
-  }
-
-  function wire(){
-    const prev = document.getElementById('prevBtn');
-    const next = document.getElementById('nextBtn');
-    if (prev && !prev.__wired){
-      prev.__wired = true;
-      prev.addEventListener('click', (e)=>{ e.stopPropagation(); prevChannel(); });
-    }
-    if (next && !next.__wired){
-      next.__wired = true;
-      next.addEventListener('click', (e)=>{ e.stopPropagation(); nextChannel(); });
-    }
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', wire);
-  } else {
-    wire();
-  }
-  setTimeout(wire, 200);
-  setTimeout(wire, 800);
-})();
