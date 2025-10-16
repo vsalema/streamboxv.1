@@ -143,6 +143,7 @@ function playYouTube(url){
 function playByType(url){
   // optionnel : positionner l’index courant pour Prev/Next
   try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(url); } catch {}
+  try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item?.url || url); } catch {}
 
   const t = classify(url);
   if (t === 'youtube') return playYouTube(url);
