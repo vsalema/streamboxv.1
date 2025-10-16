@@ -1680,3 +1680,91 @@ function pingVisibleList(concurrency){
   setTimeout(wire, 200);
   setTimeout(wire, 800);
 })();
+/* === Prev/Next dans .nowbar-actions (à gauche de copyBtn) + câblage === */
+(function prevNextInActions(){
+  // 1) Helpers de zapping (créés si absents)
+  if (typeof window.rebuildCurrentList !== 'function') {
+    window.rebuildCurrentList = function(){
+      const items = Array.from(document.querySelectorAll('#list .item'));
+      window.currentList = items.map(el => ({
+        url: el.dataset.url || '',
+        name: el.dataset.name || (el.querySelector('.name')?.textContent?.trim() || '')
+      })).filter(x => x.url);
+    };
+  }
+  if (typeof window.playChannelAt !== 'function') {
+    window.playChannelAt = function(i){
+      if (!window.currentList || !window.currentList.length) rebuildCurrentList();
+      const n = window.currentList.length; if (!n) return;
+      if (i < 0) i = n - 1; if (i >= n) i = 0;
+      window.currentIndex = i;
+
+      const item = window.currentList[i]; if (!item) return;
+      const ps = document.getElementById('playerSection');
+      const noSource = document.getElementById('noSource');
+
+      try { resetPlayers(); } catch {}
+      if (noSource) noSource.style.display = 'none';
+      if (ps) ps.classList.add('playing');
+
+      playByType(item.url);
+      try { updateNowBar(item.name || item.url, item.url); } catch {}
+      try { if (typeof addHistory === 'function') addHistory(item.url); } catch {}
+
+      try {  // nudge autoplay
+        const v = document.getElementById('videoPlayer');
+        if (v && v.style.display === 'block') {
+          v.muted = true;
+          const p = v.play();
+          if (p && p.catch) p.catch(()=>{});
+        }
+      } catch {}
+    };
+  }
+  if (typeof window.prevChannel !== 'function') window.prevChannel = ()=> window.playChannelAt((window.currentIndex|0) - 1);
+  if (typeof window.nextChannel !== 'function') window.nextChannel = ()=> window.playChannelAt((window.currentIndex|0) + 1);
+
+  if (!window.__setCurrentFromClick) {
+    window.__setCurrentFromClick = function(url){
+      rebuildCurrentList();
+      const idx = window.currentList.findIndex(x => x.url === url);
+      window.currentIndex = (idx >= 0 ? idx : 0);
+    };
+  }
+
+  // 2) Déplace/crée les boutons juste AVANT #copyBtn dans .nowbar-actions
+  function placePrevNext(){
+    const actions = document.querySelector('#nowBar .nowbar-actions');
+    if (!actions) return;
+
+    // cible: copyBtn (ou à défaut, en tout début des actions)
+    const copyBtn = document.getElementById('copyBtn');
+    const anchor = copyBtn && actions.contains(copyBtn) ? copyBtn : actions.firstChild;
+
+    let prev = document.getElementById('prevBtn');
+    if (!prev) { prev = document.createElement('button'); prev.id='prevBtn'; prev.className='navBtn'; prev.title='Chaîne précédente'; prev.textContent='⟨'; }
+    let next = document.getElementById('nextBtn');
+    if (!next) { next = document.createElement('button'); next.id='nextBtn'; next.className='navBtn'; next.title='Chaîne suivante'; next.textContent='⟩'; }
+
+    // insérer dans le bon ordre: [prev][next][copyBtn...]
+    actions.insertBefore(prev, anchor || null);
+    actions.insertBefore(next, anchor || null);
+
+    if (!prev.__wired) { prev.__wired = true; prev.addEventListener('click', (e)=>{ e.stopPropagation(); prevChannel(); }); }
+    if (!next.__wired) { next.__wired = true; next.addEventListener('click', (e)=>{ e.stopPropagation(); nextChannel(); }); }
+  }
+
+  // 3) Exécuter maintenant + après chaque updateNowBar (sans la surcharger)
+  //    -> Ajoute à la fin de TA updateNowBar(...) la ligne ci-dessous :
+  //       document.dispatchEvent(new CustomEvent('nowbar:updated'));
+  document.addEventListener('nowbar:updated', placePrevNext);
+
+  // 4) premiers passages
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', placePrevNext);
+  } else {
+    placePrevNext();
+  }
+  setTimeout(placePrevNext, 200);
+  setTimeout(placePrevNext, 800);
+})();
