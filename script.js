@@ -1707,4 +1707,127 @@ function pingVisibleList(concurrency){
     if (window.currentIndex < 0) window.currentIndex = 0;
   };
 })();
+/* ===== Prev/Next chaînes — auto-install robust ===== */
+(function installPrevNext(){
+  function ensureNowLeft(){
+    const bar = document.getElementById('nowBar');
+    if (!bar) return null;
+
+    // assure le titre (sinon on l'insère en 2e colonne de la grille)
+    let title = document.getElementById('nowTitle');
+    if (!title) {
+      title = document.createElement('span');
+      title.id = 'nowTitle';
+      bar.appendChild(title);
+    }
+
+    // crée la zone gauche si absente et la met AVANT le titre
+    let left = document.getElementById('nowLeft');
+    if (!left) {
+      left = document.createElement('div');
+      left.id = 'nowLeft';
+      bar.insertBefore(left, title);
+    }
+
+    // crée les boutons si absents
+    let prev = document.getElementById('prevBtn');
+    if (!prev) {
+      prev = document.createElement('button');
+      prev.id = 'prevBtn';
+      prev.className = 'navBtn';
+      prev.title = 'Chaîne précédente';
+      prev.textContent = '⟨';
+      left.appendChild(prev);
+      prev.addEventListener('click', (e)=>{ e.stopPropagation(); prevChannel(); });
+    }
+    let next = document.getElementById('nextBtn');
+    if (!next) {
+      next = document.createElement('button');
+      next.id = 'nextBtn';
+      next.className = 'navBtn';
+      next.title = 'Chaîne suivante';
+      next.textContent = '⟩';
+      left.appendChild(next);
+      next.addEventListener('click', (e)=>{ e.stopPropagation(); nextChannel(); });
+    }
+    return left;
+  }
+
+  // (ré)construit la liste des chaînes visibles dans #list
+  function rebuildCurrentList(){
+    const items = Array.from(document.querySelectorAll('#list .item'));
+    window.currentList = items.map(el => ({
+      url: el.dataset.url || '',
+      name: el.dataset.name || (el.querySelector('.name')?.textContent?.trim() || '')
+    })).filter(x => x.url);
+  }
+
+  // expose des helpers si pas déjà là
+  if (typeof window.playChannelAt !== 'function') {
+    window.playChannelAt = function(i){
+      if (!window.currentList || !window.currentList.length) rebuildCurrentList();
+      const n = window.currentList.length;
+      if (!n) return;
+      if (i < 0) i = n - 1;
+      if (i >= n) i = 0;
+      window.currentIndex = i;
+
+      const item = window.currentList[i];
+      if (!item) return;
+
+      const ps = document.getElementById('playerSection');
+      const noSource = document.getElementById('noSource');
+      try { resetPlayers(); } catch(_){}
+      if (noSource) noSource.style.display = 'none';
+      if (ps) ps.classList.add('playing');
+
+      playByType(item.url);
+      try { updateNowBar(item.name || item.url, item.url); } catch(_){}
+      try { if (typeof addHistory === 'function') addHistory(item.url); } catch(_){}
+
+      try {
+        const v = document.getElementById('videoPlayer');
+        if (v && v.style.display === 'block') {
+          v.muted = true;
+          const p = v.play();
+          if (p && p.catch) p.catch(()=>{});
+        }
+      } catch(_){}
+    };
+  }
+  if (typeof window.prevChannel !== 'function') window.prevChannel = function(){ window.playChannelAt((window.currentIndex|0) - 1); };
+  if (typeof window.nextChannel !== 'function') window.nextChannel = function(){ window.playChannelAt((window.currentIndex|0) + 1); };
+  if (typeof window.__setCurrentFromClick !== 'function') {
+    window.__setCurrentFromClick = function(url){
+      rebuildCurrentList();
+      const idx = window.currentList.findIndex(x => x.url === url);
+      window.currentIndex = (idx >= 0 ? idx : 0);
+    };
+  }
+
+  // Monkeypatch updateNowBar pour recréer les boutons à chaque mise à jour
+  const __origUpdate = window.updateNowBar;
+  window.updateNowBar = function(title,url){
+    if (typeof __origUpdate === 'function') __origUpdate(title,url);
+    ensureNowLeft();
+    if (url) { try { window.__setCurrentFromClick(url); } catch(_){} }
+  };
+
+  // Raccourcis clavier ← →
+  window.addEventListener('keydown', (e)=>{
+    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); prevChannel(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); nextChannel(); }
+  });
+
+  // 1ers passages + retentatives (UI dynamique)
+  const kick = () => { ensureNowLeft(); rebuildCurrentList(); };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', kick);
+  } else {
+    kick();
+  }
+  setTimeout(kick, 150);
+  setTimeout(kick, 600);
+})();
 
