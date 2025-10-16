@@ -141,9 +141,8 @@ function playYouTube(url){
   updateNowBar(undefined, url);
 }
 function playByType(url){
-  // optionnel : positionner l’index courant pour Prev/Next
+  // positionne l’index courant pour Prev/Next (depuis n’importe quelle entrée)
   try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(url); } catch {}
-  try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item?.url || url); } catch {}
 
   const t = classify(url);
   if (t === 'youtube') return playYouTube(url);
