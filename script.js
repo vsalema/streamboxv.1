@@ -1604,4 +1604,105 @@ function pingVisibleList(concurrency){
     tabs.insertAdjacentElement('afterend', verify);
   }
 })();
+/* ===== Prev/Next chaînes dans la nowBar ===== */
+(function setupPrevNext(){
+  const bar = document.getElementById('nowBar');
+  if (!bar) return;
+
+  // 1) Assure le conteneur gauche
+  let left = document.getElementById('nowLeft');
+  if (!left) {
+    left = document.createElement('div');
+    left.id = 'nowLeft';
+    // insère à gauche du #nowTitle
+    const title = document.getElementById('nowTitle') || bar.firstChild;
+    bar.insertBefore(left, title || null);
+  }
+
+  // 2) Crée les boutons s’ils n’existent pas
+  if (!document.getElementById('prevBtn')) {
+    const prev = document.createElement('button');
+    prev.id = 'prevBtn';
+    prev.className = 'navBtn';
+    prev.title = 'Chaîne précédente';
+    prev.textContent = '⟨';
+    left.appendChild(prev);
+  }
+  if (!document.getElementById('nextBtn')) {
+    const next = document.createElement('button');
+    next.id = 'nextBtn';
+    next.className = 'navBtn';
+    next.title = 'Chaîne suivante';
+    next.textContent = '⟩';
+    left.appendChild(next);
+  }
+
+  // 3) État courant de la liste affichée
+  window.currentList = window.currentList || [];
+  window.currentIndex = typeof window.currentIndex === 'number' ? window.currentIndex : -1;
+
+  // Helper : reconstruit la liste courante à partir des items visibles
+  function rebuildCurrentList(){
+    const items = Array.from(document.querySelectorAll('#list .item'));
+    window.currentList = items.map(el => ({
+      url: el.dataset.url || '',
+      name: el.dataset.name || (el.querySelector('.name')?.textContent?.trim() || '')
+    })).filter(it => it.url);
+  }
+
+  // 4) Lecture par index avec wrap
+  window.playChannelAt = function(i){
+    if (!window.currentList || !window.currentList.length) rebuildCurrentList();
+    const n = window.currentList.length;
+    if (!n) return;
+    if (i < 0) i = n - 1;
+    if (i >= n) i = 0;
+    window.currentIndex = i;
+
+    const item = window.currentList[i];
+    if (!item) return;
+
+    const ps = document.getElementById('playerSection');
+    const noSource = document.getElementById('noSource');
+
+    try { resetPlayers(); } catch(_){}
+    if (noSource) noSource.style.display = 'none';
+    if (ps) ps.classList.add('playing');
+
+    playByType(item.url);
+    try { updateNowBar(item.name || item.url, item.url); } catch(_){}
+    try { if (typeof addHistory === 'function') addHistory(item.url); } catch(_){}
+
+    try { // petit coup de pouce à l’autoplay
+      const v = document.getElementById('videoPlayer');
+      if (v && v.style.display === 'block') {
+        v.muted = true;
+        const p = v.play();
+        if (p && p.catch) p.catch(()=>{});
+      }
+    } catch(_){}
+  };
+
+  window.prevChannel = function(){ window.playChannelAt((window.currentIndex|0) - 1); };
+  window.nextChannel = function(){ window.playChannelAt((window.currentIndex|0) + 1); };
+
+  // 5) Branche boutons
+  document.getElementById('prevBtn').onclick = (e)=>{ e.stopPropagation(); window.prevChannel(); };
+  document.getElementById('nextBtn').onclick = (e)=>{ e.stopPropagation(); window.nextChannel(); };
+
+  // 6) Raccourcis clavier (optionnel) ← → pour zapper
+  window.addEventListener('keydown', (e)=>{
+    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); window.prevChannel(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); window.nextChannel(); }
+  });
+
+  // 7) Hook: quand tu cliques un item, positionne l’index courant
+  //    -> Appelle ceci juste après ton click sur un item
+  window.__setCurrentFromClick = function(clickedUrl){
+    rebuildCurrentList();
+    window.currentIndex = window.currentList.findIndex(it => it.url === clickedUrl);
+    if (window.currentIndex < 0) window.currentIndex = 0;
+  };
+})();
 
