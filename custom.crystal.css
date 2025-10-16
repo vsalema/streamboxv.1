@@ -1059,3 +1059,39 @@ aside .tabs > button.active{
   color: #fff;
   border-color: var(--accent);
 }
+/* Prev/Next intégrés dans .nowbar-actions (à gauche de copyBtn) */
+#nowBar{
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important; /* [gauche? si tu en as] [titre] [actions] */
+  align-items: center !important;
+  column-gap: 8px !important;
+}
+#nowBar .nowbar-actions{
+  display: inline-flex !important;
+  gap: 8px !important;
+  justify-self: end !important;
+  pointer-events: auto !important;
+}
+#nowBar .nowbar-actions .navBtn{
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+#nowBar .nowbar-actions .navBtn:hover{
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+#nowTitle{
+  min-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
