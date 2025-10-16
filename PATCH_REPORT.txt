@@ -1,0 +1,2 @@
+✓ Logique Prev/Next déjà présente
+✓ CSS navBtn déjà présent
