@@ -141,15 +141,16 @@ function playYouTube(url){
   updateNowBar(undefined, url);
 }
 function playByType(url){
-  try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item?.url || url); } catch {}
+  // optionnel : positionner l’index courant pour Prev/Next
+  try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(url); } catch {}
+
   const t = classify(url);
-  if (t==='youtube') return playYouTube(url);
-  if (t==='mp4') return playVideo(url);
-  if (t==='mp3') return playAudio(url);
-  if (t==='dash') return playDash(url);
+  if (t === 'youtube') return playYouTube(url);
+  if (t === 'mp4')     return playVideo(url);
+  if (t === 'mp3')     return playAudio(url);
+  if (t === 'dash')    return playDash(url);
   return playHls(url);
 }
-
 // --- M3U ---
 function parseM3U(text){
   text = String(text||'').replace(/^\uFEFF/, '');
