@@ -1064,3 +1064,64 @@ aside .tabs > button.active{
   color: #fff;
   border-color: var(--accent);
 }
+/* === Prev/Next dans la nowBar — overrides forts === */
+#nowBar{
+  position: fixed !important;
+  left: 12px !important;
+  right: 12px !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  z-index: 1000 !important;
+
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important; /* [gauche] [titre] [actions] */
+  align-items: center !important;
+  column-gap: 8px !important;
+
+  pointer-events: none !important; /* on laisse passer sur le player */
+}
+
+#nowLeft{
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  pointer-events: auto !important;   /* cliquable */
+}
+
+#nowLeft .navBtn{
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 8px !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+}
+
+#nowLeft .navBtn:hover{
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+/* Titre centré & tronqué */
+#nowTitle{
+  min-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Assure que la zone actions reste cliquable */
+#nowBar .nowbar-actions{
+  display: inline-flex !important;
+  gap: 8px !important;
+  justify-self: end !important;
+  pointer-events: auto !important;
+}
