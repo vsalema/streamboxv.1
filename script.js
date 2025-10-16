@@ -1852,3 +1852,127 @@ function pingVisibleList(concurrency){
   setTimeout(placePrevNext, 200);
   setTimeout(placePrevNext, 800);
 })();
+/* === Prev/Next: zapping chaînes + câblage boutons (safe) === */
+(function prevNextSafe(){
+  // 1) Liste courante (depuis les items visibles)
+  function rebuildCurrentList(){
+    const items = Array.from(document.querySelectorAll('#list .item'));
+    window.currentList = items.map(el => {
+      const url  = el.dataset?.url || '';
+      const name = el.dataset?.name || (el.querySelector('.name')?.textContent?.trim() || url);
+      return url ? { url, name } : null;
+    }).filter(Boolean);
+  }
+  window.rebuildCurrentList = window.rebuildCurrentList || rebuildCurrentList;
+
+  // 2) Lecture par index (wrap)
+  if (typeof window.playChannelAt !== 'function') {
+    window.playChannelAt = function(i){
+      if (!window.currentList || !window.currentList.length) rebuildCurrentList();
+      const n = window.currentList.length; if (!n) return;
+      if (i < 0) i = n - 1; if (i >= n) i = 0;
+      window.currentIndex = i;
+
+      const item = window.currentList[i]; if (!item) return;
+      const ps = document.getElementById('playerSection');
+      const noSource = document.getElementById('noSource');
+
+      try { resetPlayers(); } catch {}
+      if (noSource) noSource.style.display = 'none';
+      if (ps) ps.classList.add('playing');
+
+      // centralise la MAJ de l’index pour Prev/Next
+      try { if (window.__setCurrentFromClick) window.__setCurrentFromClick(item.url); } catch {}
+
+      playByType(item.url);
+      try { updateNowBar(item.name || item.url, item.url); } catch {}
+      try { if (typeof addHistory === 'function') addHistory(item.url); } catch {}
+
+      // nudge autoplay
+      try {
+        const v = document.getElementById('videoPlayer');
+        if (v && v.style.display === 'block') {
+          v.muted = true;
+          const p = v.play();
+          if (p && p.catch) p.catch(()=>{});
+        }
+      } catch {}
+    };
+  }
+  if (typeof window.prevChannel !== 'function') window.prevChannel = ()=> window.playChannelAt((window.currentIndex|0) - 1);
+  if (typeof window.nextChannel !== 'function') window.nextChannel = ()=> window.playChannelAt((window.currentIndex|0) + 1);
+
+  // 3) Mémorise l’index courant quand tu lances une chaîne (depuis clic/URL)
+  if (typeof window.__setCurrentFromClick !== 'function') {
+    window.__setCurrentFromClick = function(url){
+      rebuildCurrentList();
+      const idx = window.currentList.findIndex(x => x.url === url);
+      window.currentIndex = (idx >= 0 ? idx : 0);
+    };
+  }
+
+  // 4) Câblage des boutons (ceux qui sont déjà dans la nowBar)
+  function wirePrevNext(){
+    const prev = document.getElementById('prevBtn');
+    const next = document.getElementById('nextBtn');
+    if (prev && !prev.__wired){ prev.__wired = true; prev.addEventListener('click', (e)=>{ e.stopPropagation(); prevChannel(); }); }
+    if (next && !next.__wired){ next.__wired = true; next.addEventListener('click', (e)=>{ e.stopPropagation(); nextChannel(); }); }
+  }
+
+  // 5) Quand la nowBar est mise à jour, on recâble (et on recalcule la liste)
+  document.addEventListener('nowbar:updated', ()=>{ wirePrevNext(); rebuildCurrentList(); });
+
+  // 6) Petite délégation pour être sûr de fixer l’index au clic d’un item
+  //    (n’interfère pas avec TON handler existant)
+  const list = document.getElementById('list');
+  if (list && !list.__prevnextHooked){
+    list.__prevnextHooked = true;
+    list.addEventListener('click', (e)=>{
+      const it = e.target.closest('.item');
+      if (!it || !list.contains(it)) return;
+      const url = it.dataset?.url;
+      if (url) { try { __setCurrentFromClick(url); } catch {} }
+    }, { capture:true, passive:true });
+  }
+
+  // 7) Démarrage + petites relances
+  function kick(){ wirePrevNext(); rebuildCurrentList(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kick);
+  else kick();
+  setTimeout(kick, 200);
+  setTimeout(kick, 800);
+})();
+// === NowBar: mise à jour du titre + actions (et signal) ===
+if (typeof window.updateNowBar !== 'function') {
+  window.updateNowBar = function updateNowBar(title, url){
+    const bar = document.getElementById('nowBar');
+    if (!bar) return;
+
+    // Titre
+    let titleEl = document.getElementById('nowTitle');
+    if (!titleEl) {
+      titleEl = document.createElement('span');
+      titleEl.id = 'nowTitle';
+      const actionsRef = bar.querySelector('.nowbar-actions');
+      actionsRef ? bar.insertBefore(titleEl, actionsRef) : bar.appendChild(titleEl);
+    }
+    titleEl.textContent = title || (url || '—');
+
+    // Actions existantes
+    const openBtn = document.getElementById('openBtn');
+    if (openBtn) { if (url) { openBtn.href = url; openBtn.style.display=''; } else { openBtn.removeAttribute('href'); } }
+    const copyBtn = document.getElementById('copyBtn');
+    if (copyBtn) {
+      copyBtn.onclick = async (e)=>{ e.stopPropagation(); try { await navigator.clipboard.writeText(url || ''); try{ toast('URL copiée'); }catch{} } catch{} };
+    }
+    const fsBtn = document.getElementById('fsBtn');
+    if (fsBtn) {
+      fsBtn.onclick = async (e)=>{ e.stopPropagation(); const el = document.getElementById('playerSection')||document.documentElement; try { if (!document.fullscreenElement) await el.requestFullscreen(); else await document.exitFullscreen(); } catch{} };
+    }
+
+    try { window.currentUrl = url || ''; } catch{}
+
+    // ⬇️ Signaler la mise à jour (Prev/Next se rebranchent)
+    try { document.dispatchEvent(new CustomEvent('nowbar:updated', { detail:{ title, url } })); } catch{}
+  };
+}
