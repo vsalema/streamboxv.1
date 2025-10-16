@@ -996,3 +996,54 @@ aside .tabs > button.active{
   transform: translateY(0) !important;
   box-shadow: none !important;
 }
+/* === NowBar : layout Crystal */
+#nowBar{
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important; /* [gauche?] [titre] [actions] */
+  align-items: center !important;
+  column-gap: 8px !important;
+}
+
+/* Zone actions (droite) */
+#nowBar .nowbar-actions{
+  display: inline-flex !important;
+  gap: 8px !important;
+  justify-self: end !important;
+  pointer-events: auto !important; /* clics actifs */
+}
+
+/* Boutons de navigation (Prev/Next) placés dans .nowbar-actions */
+#nowBar .nowbar-actions .navBtn,
+#nowLeft .navBtn{
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 8px !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+#nowBar .nowbar-actions .navBtn:hover,
+#nowLeft .navBtn:hover{
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+/* Titre centré et tronqué proprement */
+#nowTitle{
+  min-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+/* (Optionnel) meilleure intégration mobile */
+@media (max-width: 900px){
+  #nowBar{ column-gap: 6px !important; }
+  #nowBar .nowbar-actions .navBtn{ min-width: 26px !important; height: 26px !important; padding: 0 6px !important; }
+}
