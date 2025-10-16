@@ -821,4 +821,78 @@ aside {
   max-width: 220px !important;      /* évite qu’il soit trop large */
   width: auto !important;
 }
+/* Onglets: largeur FIXE par bouton (sauf #btnVerifyLinks), responsive */
+aside .tabs{
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  flex-wrap: nowrap !important;           /* 1 seule ligne */
+  overflow-x: auto !important;            /* défilement si trop étroit */
+  overflow-y: hidden !important;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+aside .tabs::-webkit-scrollbar{ display:none; }
+
+aside .tabs > button:not(#btnVerifyLinks){
+  flex: 0 0 81px !important;
+  width: 81px !important;
+  min-width: 81px !important;
+  max-width: 81px !important;
+  height: 30px !important;
+  padding: 0 6px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Style actif (optionnel) */
+aside .tabs > button.active{
+  border-bottom: 2px solid var(--accent) !important;
+  font-weight: 700 !important;
+}
+
+/* "Vérifier les liens" centré sous la barre (pas dans .tabs) */
+#btnVerifyLinks{
+  display: block !important;
+  margin: 8px auto 6px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+  width: auto !important;
+  max-width: 220px !important;
+}
+
+/* ======= Breakpoints ======= */
+/* Écrans <= 900px : un peu plus compacts */
+@media (max-width: 900px){
+  aside .tabs > button:not(#btnVerifyLinks){
+    flex-basis: 74px !important;
+    width: 74px !important; min-width: 74px !important; max-width: 74px !important;
+  }
+}
+
+/* Écrans <= 600px : encore plus compacts */
+@media (max-width: 600px){
+  aside .tabs > button:not(#btnVerifyLinks){
+    flex-basis: 68px !important;
+    width: 68px !important; min-width: 68px !important; max-width: 68px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Écrans très étroits <= 420px : ultra-compact */
+@media (max-width: 420px){
+  aside .tabs > button:not(#btnVerifyLinks){
+    flex-basis: 64px !important;
+    width: 64px !important; min-width: 64px !important; max-width: 64px !important;
+    font-size: 10.5px !important;
+    padding: 0 5px !important;
+  }
+}
 
