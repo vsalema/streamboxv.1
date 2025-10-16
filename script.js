@@ -1680,3 +1680,21 @@ function pingVisibleList(concurrency){
   setTimeout(wire, 200);
   setTimeout(wire, 800);
 })();
+/* Prev/Next intégrés DANS la zone actions (à droite) */
+.nowbar-actions .navBtn{
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nowbar-actions .navBtn:hover{
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
