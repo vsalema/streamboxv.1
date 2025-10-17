@@ -1035,3 +1035,29 @@ body.light{
   background-size: 400% 400% !important;
   animation: gradientFlow 30s ease infinite !important;
 }
+/* Empêche le débordement dans la liste */
+.item .left{ 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+  min-width: 0;                /* essentiel en flex */
+}
+.item .meta{
+  display: flex;
+  flex-direction: column;
+  min-width: 0;                /* autorise le shrink du texte */
+}
+.item .name{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;         /* ellipse sur une seule ligne */
+}
+
+/* (facultatif) ellipse sur 2 lignes */
+.item .name.wrap2{
+  display: -webkit-box;
+  -webkit-line-clamp: 2;       /* nb de lignes */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
